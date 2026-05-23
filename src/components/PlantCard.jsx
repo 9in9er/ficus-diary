@@ -19,10 +19,12 @@ function PlantCard({
   getLastWatering,
   getDaysSinceLastWatering,
   togglePinPlant,
+  toggleHidePlant,
   addNoteToPlant,
   deleteNoteFromPlant,
   noteText,
   changeNoteText,
+  showOnlyHidden,
 }) {
   const [isDotsMenuOpen, setIsDotsMenuOpen] = useState(false);
   const isEditing = editingId === plant.id;
@@ -35,9 +37,10 @@ function PlantCard({
   const log = Array.isArray(plant.wateringLog) ? plant.wateringLog : [];
   const daysSinceLast = getDaysSinceLastWatering(log);
   const isPinned = !!plant.pinned;
+  const isHidden = !!plant.hidden;
 
   return (
-    <div className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''}`}>
+    <div className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isHidden && !showOnlyHidden ? 'plantWrap--hidden' : ''}`}>
       <div className='plantInfo'>
         {isEditing ? (
           <div className='mainForm'>
@@ -260,6 +263,12 @@ function PlantCard({
                       onClick={() => togglePinPlant(plant.id, isPinned)}
                     >
                       <span>📌</span>
+                    </button>
+                    <button
+                      className={`btn btnHide ${isHidden ? 'btnHide--active' : ''}`}
+                      onClick={() => toggleHidePlant(plant.id, isHidden)}
+                    >
+                      👁️
                     </button>
                     <button
                       className='btn btnDelete'
