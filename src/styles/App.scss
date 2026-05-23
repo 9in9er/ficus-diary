@@ -44,7 +44,7 @@ header {
 
   .searchGroup {
     position: relative;
-    width: 62%;
+    width: 57%;
 
     .searchInput {
       display: block;
@@ -80,6 +80,21 @@ header {
       &:hover {
         opacity: 1;
       }
+    }
+  }
+
+  .btnToggleHidden {
+    background: $grayBgColor;
+
+    width: rem-convert(120px);
+    
+    &.btnToggleHidden--active {
+      background: $grayBgColor;
+    }
+    
+    &:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
     }
   }
 
@@ -198,7 +213,7 @@ footer {
   .topBar {
     .searchGroup {
       position: relative;
-      width: 47%;
+      width: 42%;
     }
   }
 
@@ -227,6 +242,10 @@ footer {
       order: 3;
 
       margin-top: rem-convert(20px);
+    }
+
+    .btnToggleHidden {
+      margin-top: rem-convert(10px);
     }
   }
 }

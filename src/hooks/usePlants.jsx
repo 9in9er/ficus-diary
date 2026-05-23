@@ -27,6 +27,8 @@ export function usePlants(user) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [noteTextByPlant, setNoteTextByPlant] = useState({});
 
+  const [showOnlyHidden, setShowOnlyHidden] = useState(false);
+
 
   useEffect(() => {
     if (!user) {
@@ -98,6 +100,7 @@ export function usePlants(user) {
       userId: user.uid,
       createdAt: new Date().toISOString(),
       pinned: false,
+      hidden: false,
     };
 
     await addDoc(collection(db, 'plants'), newPlant);
@@ -244,9 +247,25 @@ export function usePlants(user) {
     });
   };
 
-  const filteredPlants = plants.filter((plant) =>
-    (plant.name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const toggleHidePlant = async (id, currentHidden) => {
+    const plantRef = doc(db, 'plants', id);
+    await updateDoc(plantRef, {
+      hidden: !currentHidden,
+    });
+  };
+
+  const filteredPlants = plants.filter((plant) => {
+    const matchesSearch = (plant.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    
+    // Фильтр по скрытым растениям
+    if (showOnlyHidden) {
+      return plant.hidden === true;
+    }
+    
+    // В обычном режиме показываем только не скрытые растения
+    return !plant.hidden;
+});
 
   const sortedPlants = [...filteredPlants].sort((a, b) => {
     const aPinned = !!a.pinned;
@@ -299,7 +318,8 @@ export function usePlants(user) {
     isAddModalOpen,
     setIsAddModalOpen,
     noteTextByPlant,
-
+    showOnlyHidden,
+    setShowOnlyHidden,
     handleAddPlant,
     handleDeletePlant,
     handleWaterPlant,
@@ -316,6 +336,7 @@ export function usePlants(user) {
     getLastWatering,
     getDaysSinceLastWatering,
     togglePinPlant,
+    toggleHidePlant,
     sortedPlants,
   };
 }

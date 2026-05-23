@@ -44,6 +44,9 @@ function PlantsPage() {
         getLastWatering,
         getDaysSinceLastWatering,
         togglePinPlant,
+        toggleHidePlant,
+        showOnlyHidden,
+        setShowOnlyHidden,
         sortedPlants,
     } = usePlants(auth.user);
     
@@ -127,6 +130,15 @@ function PlantsPage() {
                     </select>
                 </label>
                 </div>
+
+                <button
+                    className={`btn btnToggleHidden ${showOnlyHidden ? 'active' : ''}`}
+                    onClick={() => setShowOnlyHidden(!showOnlyHidden)}
+                    title={showOnlyHidden ? 'Показать все растения' : 'Показать скрытые растения'}
+                >
+                    {showOnlyHidden ? '🔓 Все' : '🔒 Скрытые'}
+                </button>
+
             </div>
 
             <div className='plantListWrap'>
@@ -147,10 +159,12 @@ function PlantsPage() {
                     getLastWatering={getLastWatering}
                     getDaysSinceLastWatering={getDaysSinceLastWatering}
                     togglePinPlant={togglePinPlant}
+                    toggleHidePlant={toggleHidePlant}
                     addNoteToPlant={addNoteToPlant}
                     deleteNoteFromPlant={deleteNoteFromPlant}
                     noteText={noteTextByPlant[plant.id] || ''}
                     changeNoteText={changeNoteText}
+                    showOnlyHidden={showOnlyHidden}
                 />
                 ))}
             </div>
