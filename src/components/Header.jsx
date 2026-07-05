@@ -7,7 +7,7 @@ function Header({
   return (
     <header>
         <h1 className='appTitle'><img src={titlePic} className='titlePic' alt='logo' />
-          Мои растения{showCount && typeof count === 'number'
+          Фикус{showCount && typeof count === 'number'
           ? ` (${count})`
           : ''
           }
