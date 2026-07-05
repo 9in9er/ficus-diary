@@ -243,7 +243,7 @@ function PlantCard({
                 </div>
               </div>
               
-              <div className='btnsWrap'>
+              <div className='btnsWrap cardBtns'>
                 <button
                   className='btn btnWatering'
                   onClick={() => handleWaterPlant(plant.id, log)}

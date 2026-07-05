@@ -22,10 +22,10 @@
         padding: rem-convert(20px);
         box-sizing: border-box;
 
-        box-shadow: rem-convert(0px 0px 5px) rgba(0, 0, 0, 0.1);
+        border: 1px solid $borderColor;
 
         &.plantWrap--pinned {
-            box-shadow: rem-convert(0px 0px 3px) rgba(0, 0, 0, 1);
+            border: 1px solid $borderColorDark;
         }
 
         &.plantWrap--hidden {
@@ -59,7 +59,7 @@
                 width: 100%;
 
                 .photoInfo {
-                    width: rem-convert(170px);
+                    width: rem-convert(160px);
 
                     .plantPhoto {
                         width: rem-convert(150px);
@@ -94,7 +94,13 @@
 
                         .wateringList {
                             margin-top: rem-convert(10px);
-                            padding-left: rem-convert(20px);
+                            padding-left: rem-convert(0px);
+
+                            list-style-type: none;
+
+                            li {
+                                margin: rem-convert(4px 0px);
+                            }
 
                             .btn.btnDelete {
                                 padding: rem-convert(2px 4px);
@@ -247,8 +253,17 @@
                 left: rem-convert(20px);
             }
 
-            .btn {
-                padding: rem-convert(10px 15px);
+            &.cardBtns {
+                .btn {
+                    background: #fff;
+                    border: 1px solid $borderColor;
+
+                    padding: rem-convert(10px 15px);
+
+                    &.btnDelete {
+                        background: initial;
+                    }
+                }
             }
         }
     }
