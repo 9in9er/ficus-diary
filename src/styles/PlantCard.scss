@@ -59,7 +59,7 @@
                 width: 100%;
 
                 .photoInfo {
-                    width: rem-convert(160px);
+                    width: rem-convert(170px);
 
                     .plantPhoto {
                         width: rem-convert(150px);
@@ -71,13 +71,6 @@
                         border-radius: rem-convert(5px);
 
                         aspect-ratio: 4/5;
-                    }
-
-                    .dateOfAppearance {
-                        font-size: rem-convert(14px);
-                        line-height: rem-convert(14px);
-
-                        margin-top: rem-convert(5px);
                     }
 
                     .aboutWatering {
@@ -122,6 +115,13 @@
                         }
                     }
 
+                    .dateOfAppearance {
+                        font-size: rem-convert(14px);
+                        line-height: rem-convert(14px);
+
+                        margin-top: rem-convert(10px);
+                    }
+
                     .notesBlock {
                         margin-top: rem-convert(20px);
 
@@ -162,11 +162,20 @@
                                     line-height: rem-convert(11px);
                                     color: $grayTextColor;
 
-                                    margin-top: rem-convert(5px);
+                                    margin-top: rem-convert(2px);
                                 }
 
                                 .btn.btnDelete {
                                     padding: rem-convert(2px 4px);
+                                    opacity: 0;
+                                    pointer-events: none;
+                                }
+
+                                &:hover {
+                                    .btn.btnDelete {
+                                        opacity: 1;
+                                        pointer-events: all;
+                                    }
                                 }
                             }
                         }
@@ -195,6 +204,11 @@
                             }
 
                             .btnSubmit {
+                                background: #fff;
+
+                                color: #000;
+                                border: 1px solid $borderColor;
+
                                 padding: rem-convert(6px 10px);
                             }
                         }
@@ -258,7 +272,11 @@
                     background: #fff;
                     border: 1px solid $borderColor;
 
-                    padding: rem-convert(10px 15px);
+                    width: rem-convert(40px);
+                    height: rem-convert(40px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
 
                     &.btnDelete {
                         background: initial;
@@ -343,6 +361,15 @@
 
                             .notesAdd {
                                 flex-direction: column;
+                            }
+
+                            .notesList {
+                                .notesItem {
+                                    .btn.btnDelete {
+                                        opacity: 1;
+                                        pointer-events: all;
+                                    }
+                                }
                             }
                         }
                     }
