@@ -35,11 +35,6 @@
         .plantInfo {
             width: 100%;
 
-            hr {
-                margin-top: rem-convert(15px);
-                margin-bottom: rem-convert(15px);
-            }
-
             p {
                 margin: 0;
             }
@@ -53,23 +48,18 @@
                 line-height: rem-convert(24px);
             }
 
+            .plantNameMob {
+                display: none;
+            }
+
             .aboutPlant {
                 display: flex;
                 flex-direction: row;
 
                 width: 100%;
 
-                margin-top: rem-convert(20px);
-
                 .photoInfo {
                     width: rem-convert(170px);
-
-                    .dateOfAppearance {
-                        font-size: rem-convert(14px);
-                        line-height: rem-convert(14px);
-
-                        margin-top: rem-convert(5px);
-                    }
 
                     .plantPhoto {
                         width: rem-convert(150px);
@@ -80,17 +70,25 @@
 
                         border-radius: rem-convert(5px);
 
-                        aspect-ratio: 3/4;
+                        aspect-ratio: 4/5;
                     }
-                }
 
-                .textInfos {
-                    width: calc(100% - rem-convert(170px));
+                    .dateOfAppearance {
+                        font-size: rem-convert(14px);
+                        line-height: rem-convert(14px);
 
-                    details {
-                        margin-top: rem-convert(10px);
+                        margin-top: rem-convert(5px);
+                    }
+
+                    .aboutWatering {
+                        font-size: rem-convert(14px);
+                        line-height: rem-convert(14px);
+
+                        margin-top: rem-convert(15px);
 
                         summary {
+                            margin-top: rem-convert(15px);
+
                             cursor: pointer;
                         }
 
@@ -105,8 +103,22 @@
                             }
                         }
                     }
+                }
+
+                .textInfos {
+                    width: calc(100% - rem-convert(170px));
+
+                    details {
+                        margin-top: rem-convert(10px);
+
+                        summary {
+                            cursor: pointer;
+                        }
+                    }
 
                     .notesBlock {
+                        margin-top: rem-convert(20px);
+
                         h4 {
                             font-size: rem-convert(14px);
                             line-height: rem-convert(14px);
@@ -234,6 +246,10 @@
                 bottom: rem-convert(20px);
                 left: rem-convert(20px);
             }
+
+            .btn {
+                padding: rem-convert(10px 15px);
+            }
         }
     }
 }
@@ -274,57 +290,45 @@
 @media (max-width: 480px) {
     .plantListWrap {
         .plantWrap {
-            .btnsWrap {
-                &.btnsWrapEditing {
-                    width: 100%;
-                }
+            padding: rem-convert(10px);
 
-                .btn {
-                    padding: rem-convert(10px 10px);
-                }
+            .btnsWrap {
+                top: rem-convert(10px);
+                right: rem-convert(10px);
             }
 
             .plantInfo {
                 .plantName {
-                    width: 77%;
-
-                    margin-top: 0;
+                    display: none;
                 }
+                .plantNameMob {
+                    display: block;
+                    
+                    width: calc(100% - rem-convert(110px));
 
-                .nameLabel {
-                    width: 61%;
+                    font-size: rem-convert(24px);
+                    line-height: rem-convert(24px);
+                    
                 }
-
-                .dateLabel {
-                    width: 36%;
-                }
-
                 .aboutPlant {
+                    display: block;
+
                     .photoInfo {
-                         .dateOfAppearance {
-                            line-height: rem-convert(18px);
-                         }
+                        display: inline-block;
+                        margin-top: rem-convert(15px);
                     }
+
                     .textInfos {
-                        position: relative;
-                        width: 43%;
-
-                        hr {
-                            display: none;
-                        }
-
-                        .aboutWatering {
-                            width: 120%;
-
-                            position: absolute;
-                            top: 0%;
-                            left: 0%;
-                        }
+                        display: inline-block;
+                        vertical-align: top;
+                        margin-top: rem-convert(15px);
 
                         .notesBlock {
-                            margin-top: 60vw;
-                            margin-left: rem-convert(-170px);
-                            width: 232%;
+                            margin-top: 0;
+
+                            .notesAdd {
+                                flex-direction: column;
+                            }
                         }
                     }
                 }
