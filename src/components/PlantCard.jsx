@@ -104,11 +104,6 @@ function PlantCard({
                   />
                 )}
 
-                <p className='dateOfAppearance'>
-                  <strong>Дата появления: </strong>
-                  {plant.acquiredAt ? new Date(plant.acquiredAt).toLocaleDateString('ru-RU') : 'неизвестно'}
-                </p>
-
                 <div className='aboutWatering'>
                   <p>
                     <strong>Последний полив: <br /></strong>
@@ -143,6 +138,12 @@ function PlantCard({
               </div>
               <div className='textInfos'>
                 <h3 className='plantName'>{plant.name}</h3>
+                
+                <p className='dateOfAppearance'>
+                  <strong>Дата появления: </strong>
+                  {plant.acquiredAt ? new Date(plant.acquiredAt).toLocaleDateString('ru-RU') : 'неизвестно'}
+                </p>
+
                 <div className='notesBlock'>
                   <h4>Заметки</h4>
 
@@ -162,7 +163,7 @@ function PlantCard({
                         changeNoteText(plant.id, '');
                       }}
                     >
-                      Добавить
+                      ↩
                     </button>
                   </div>
 
