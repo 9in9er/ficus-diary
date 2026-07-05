@@ -93,8 +93,8 @@ function PlantCard({
           </div>
         ) : (
           <>
-            <h3 className='plantName'>{plant.name}</h3>
             <div className='aboutPlant'>
+              <h3 className='plantNameMob'>{plant.name}</h3>
               <div className='photoInfo'>
                 {(isEditing ? editPlant?.photo : plant.photo) && (
                   <img
@@ -108,14 +108,13 @@ function PlantCard({
                   <strong>Дата появления: </strong>
                   {plant.acquiredAt ? new Date(plant.acquiredAt).toLocaleDateString('ru-RU') : 'неизвестно'}
                 </p>
-              </div>
-              <div className='textInfos'>
+
                 <div className='aboutWatering'>
                   <p>
                     <strong>Последний полив: <br /></strong>
-                    {getLastWatering(log)}
+                    {/* {getLastWatering(log)} */}
                     {daysSinceLast !== null && (
-                      <span> ({daysSinceLast === 0 ? 'сегодня' : `${daysSinceLast} дн. назад`}) </span>
+                      <span> {daysSinceLast === 0 ? 'сегодня' : `${daysSinceLast} дн. назад`} </span>
                     )}
                   </p>
 
@@ -139,10 +138,11 @@ function PlantCard({
                       </ul>
                     </details>
                   )}
-
-                  <hr />
                 </div>
 
+              </div>
+              <div className='textInfos'>
+                <h3 className='plantName'>{plant.name}</h3>
                 <div className='notesBlock'>
                   <h4>Заметки</h4>
 
