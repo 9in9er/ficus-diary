@@ -23,7 +23,7 @@ function App() {
             </AuthGuard>
           } 
         />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/plants" replace />} />
       </Routes>
     </BrowserRouter>
   )
