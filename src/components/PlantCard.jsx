@@ -25,6 +25,10 @@ function PlantCard({
   noteText,
   changeNoteText,
   showOnlyHidden,
+  isTrash = false,
+  restorePlant,
+  permanentlyDeletePlant,
+  getDaysUntilDelete,
 }) {
   const [isDotsMenuOpen, setIsDotsMenuOpen] = useState(false);
   const isEditing = editingId === plant.id;
@@ -40,7 +44,7 @@ function PlantCard({
   const isHidden = !!plant.hidden;
 
   return (
-    <div className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isHidden && !showOnlyHidden ? 'plantWrap--hidden' : ''}`}>
+    <div className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isHidden && !showOnlyHidden ? 'plantWrap--hidden' : ''} ${isTrash ? "plantWrap--trash" : ""}`}>
       <div className='plantInfo'>
         {isEditing ? (
           <div className='mainForm'>
@@ -113,21 +117,23 @@ function PlantCard({
                     )}
                   </p>
 
-                  {log.length > 0 && (
+                  {(log.length > 0 && !isTrash) && (
                     <details>
                       <summary>История поливов ({log.length})</summary>
                       <ul className='wateringList'>
                         {[...log].reverse().slice(0, 8).map((date, index) => (
                           <li key={index}>
                             {formatDate(date)}
-                            <button
-                              className='btn btnDelete'
-                              type='button'
-                              onClick={() => deleteWateringEntry(plant.id, log, date)
-                              }
-                            >
-                              ✖
-                            </button>
+                            {!isTrash && (
+                              <button
+                                className='btn btnDelete'
+                                type='button'
+                                onClick={() => deleteWateringEntry(plant.id, log, date)
+                                }
+                              >
+                                ✖
+                              </button>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -147,25 +153,27 @@ function PlantCard({
                 <div className='notesBlock'>
                   <h4>Заметки</h4>
 
-                  <div className='notesAdd'>
-                    <input
-                      className='input notesInput'
-                      type='text'
-                      placeholder='Новая заметка...'
-                      value={noteText}
-                      onChange={(e) => changeNoteText(plant.id, e.target.value)}
-                    />
-                    <button
-                      className='btn btnSubmit'
-                      type='button'
-                      onClick={() => {
-                        addNoteToPlant(plant.id, notes, noteText);
-                        changeNoteText(plant.id, '');
-                      }}
-                    >
-                      ↩
-                    </button>
-                  </div>
+                  {!isTrash && (
+                    <div className='notesAdd'>
+                      <input
+                        className='input notesInput'
+                        type='text'
+                        placeholder='Новая заметка...'
+                        value={noteText}
+                        onChange={(e) => changeNoteText(plant.id, e.target.value)}
+                      />
+                      <button
+                        className='btn btnSubmit'
+                        type='button'
+                        onClick={() => {
+                          addNoteToPlant(plant.id, notes, noteText);
+                          changeNoteText(plant.id, '');
+                        }}
+                      >
+                        ↩
+                      </button>
+                    </div>
+                  )}
 
                   {sortedNotes.length === 0 && (
                     <p className='notesEmpty'>Пока нет заметок.</p>
@@ -188,19 +196,21 @@ function PlantCard({
                                 })}
                               </div>
                             </div>
-                            <button
-                              className='btn btnDelete'
-                              type='button'
-                              onClick={() =>
-                                deleteNoteFromPlant(plant.id, notes, note.id)
-                              }
-                            >
-                              ✖
-                            </button>
+                            {!isTrash && (
+                              <button
+                                className='btn btnDelete'
+                                type='button'
+                                onClick={() =>
+                                  deleteNoteFromPlant(plant.id, notes, note.id)
+                                }
+                              >
+                                ✖
+                              </button>
+                            )}
                           </li>
                         ))}
                       </ul>
-                      {olderNotes.length > 0 && (
+                      {(olderNotes.length > 0 && !isTrash) && (
                         <details className='notesMore'>
                           <summary>
                             Показать все заметки ({sortedNotes.length - 3})
@@ -242,54 +252,90 @@ function PlantCard({
                     </>
                   )}
                 </div>
+
+                {isTrash && (
+                  <div className="trashInfo">
+                      <p>
+                          Удалено:{' '}
+                          {formatDate(plant.deletedAt)}
+                      </p>
+
+                      <p>
+                          До удаления осталось:{' '}
+                            <span>{getDaysUntilDelete(plant.deletedAt)}
+                          дн.</span>
+                      </p>
+
+                  </div>
+                )}
               </div>
               
-              <div className='btnsWrap cardBtns'>
-                <button
-                  className='btn btnWatering'
-                  onClick={() => handleWaterPlant(plant.id, log)}
-                >
-                  💧
-                </button>
-                {isDotsMenuOpen && (
-                  <>
-                    <button
-                      className='btn btnEdit'
-                      onClick={() => startEditPlant(plant)}
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      className={`btn btnPin ${isPinned ? 'btnPin--active' : ''}`}
-                      onClick={() => togglePinPlant(plant.id, isPinned)}
-                    >
-                      <span>📌</span>
-                    </button>
-                    <button
-                      className={`btn btnHide ${isHidden ? 'btnHide--active' : ''}`}
-                      onClick={() => toggleHidePlant(plant.id, isHidden)}
-                    >
-                      👁️
-                    </button>
-                    <button
-                      className='btn btnDelete'
-                      onClick={() => handleDeletePlant(plant.id)}
-                    >
-                      🗑️
-                    </button>
-                  </>
-                )}
-                <button
-                  className='btn btnDotsMenu'
-                  onClick={() => setIsDotsMenuOpen((prev) => !prev)}
-                >
-                  {isDotsMenuOpen ? (
-                    <img src={closeIcon} alt='close'/>
-                  ) : (
-                    <img src={dotsMenuIcon} alt='menu'/>
+              {!isTrash && (
+                <div className='btnsWrap cardBtns'>
+                  <button
+                    className='btn btnWatering'
+                    onClick={() => handleWaterPlant(plant.id, log)}
+                  >
+                    💧
+                  </button>
+                  {isDotsMenuOpen && (
+                    <>
+                      <button
+                        className='btn btnEdit'
+                        onClick={() => startEditPlant(plant)}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        className={`btn btnPin ${isPinned ? 'btnPin--active' : ''}`}
+                        onClick={() => togglePinPlant(plant.id, isPinned)}
+                      >
+                        <span>📌</span>
+                      </button>
+                      <button
+                        className={`btn btnHide ${isHidden ? 'btnHide--active' : ''}`}
+                        onClick={() => toggleHidePlant(plant.id, isHidden)}
+                      >
+                        👁️
+                      </button>
+                      <button
+                        className='btn btnDelete'
+                        onClick={() => handleDeletePlant(plant.id)}
+                      >
+                        🗑️
+                      </button>
+                    </>
                   )}
+                  <button
+                    className='btn btnDotsMenu'
+                    onClick={() => setIsDotsMenuOpen((prev) => !prev)}
+                  >
+                    {isDotsMenuOpen ? (
+                      <img src={closeIcon} alt='close'/>
+                    ) : (
+                      <img src={dotsMenuIcon} alt='menu'/>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {isTrash && (
+                <div className='btnsWrap cardBtns'>
+                  <button
+                    className="btn btnRestore"
+                    onClick={() => restorePlant(plant.id)}
+                >
+                    ♻️
                 </button>
-              </div>
+
+                <button
+                    className="btn btnDelete"
+                    onClick={() => permanentlyDeletePlant(plant.id)}
+                >
+                    🗑️
+                </button>
+                </div>
+              )}
             </div>
           </>
         )}
