@@ -32,6 +32,18 @@
             display: none;
         }
 
+        &.plantWrap--trash {
+            .plantInfo {
+                .aboutPlant {
+                    .photoInfo {
+                        .plantPhoto {
+                            opacity: 0.5;
+                        }
+                    }
+                }
+            }
+        }
+
         .plantInfo {
             width: 100%;
 
@@ -210,6 +222,18 @@
                                 border: 1px solid $borderColor;
 
                                 padding: rem-convert(6px 10px);
+                            }
+                        }
+                    }
+
+                    .trashInfo {
+                        margin-top: rem-convert(20px);
+
+                        p {
+                            font-size: rem-convert(20px);
+
+                            span {
+                                font-weight: bold;
                             }
                         }
                     }

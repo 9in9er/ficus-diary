@@ -29,6 +29,8 @@ export function usePlants(user) {
 
   const [showOnlyHidden, setShowOnlyHidden] = useState(false);
 
+  const [showTrash, setShowTrash] = useState(false);
+
 
   useEffect(() => {
     if (!user) {
@@ -55,8 +57,26 @@ export function usePlants(user) {
   }, [user]);
 
   useEffect(() => {
+    const clearTrash = async () => {
+        for (const plant of plants) {
+            if (!plant.deletedAt) continue;
+            const deleted = new Date(plant.deletedAt);
+            const days =
+                (Date.now() - deleted.getTime()) /
+                (1000 * 60 * 60 * 24);
+            if (days >= 30) {
+                await deleteDoc(doc(db, "plants", plant.id));
+            }
+        }
+    };
+
+    clearTrash();
+  }, [plants]);
+
+  useEffect(() => {
     localStorage.setItem('plantsSortMode', sortMode);
   }, [sortMode]);
+
 
   const resizeImageTo150px = (file, callback) => {
     const reader = new FileReader();
@@ -101,6 +121,7 @@ export function usePlants(user) {
       createdAt: new Date().toISOString(),
       pinned: false,
       hidden: false,
+      deletedAt: null,
     };
 
     await addDoc(collection(db, 'plants'), newPlant);
@@ -112,7 +133,23 @@ export function usePlants(user) {
   };
 
   const handleDeletePlant = async (id) => {
-    await deleteDoc(doc(db, 'plants', id));
+    const plantRef = doc(db, "plants", id);
+
+    await updateDoc(plantRef, {
+        deletedAt: new Date().toISOString(),
+    });
+  };
+
+  const restorePlant = async (id) => {
+    const plantRef = doc(db, 'plants', id);
+
+    await updateDoc(plantRef, {
+        deletedAt: null,
+    });
+  };
+
+  const permanentlyDeletePlant = async (id) => {
+    await deleteDoc(doc(db, "plants", id));
   };
 
   const handleWaterPlant = async (id, wateringLog) => {
@@ -222,6 +259,21 @@ export function usePlants(user) {
     return new Date(isoString).toLocaleDateString('ru-RU');
   };
 
+  const getDaysUntilDelete = (deletedAt) => {
+    if (!deletedAt) return null;
+
+    const deleted = new Date(deletedAt);
+    const now = new Date();
+
+    const diff =
+        30 -
+        Math.floor(
+            (now - deleted) / (1000 * 60 * 60 * 24)
+        );
+
+    return Math.max(diff, 0);
+  };
+
   const getLastWatering = (wateringLog) => {
     if (!wateringLog.length) return 'Ещё не поливали';
     return formatDate(wateringLog[wateringLog.length - 1]);
@@ -255,6 +307,7 @@ export function usePlants(user) {
   };
 
   const filteredPlants = plants.filter((plant) => {
+    if (plant.deletedAt) return false;
     const matchesSearch = (plant.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     
@@ -265,7 +318,15 @@ export function usePlants(user) {
     
     // В обычном режиме показываем только не скрытые растения
     return !plant.hidden;
-});
+  });
+
+  const trashPlants = plants.filter(
+    plant => plant.deletedAt
+  );
+
+  const sortedTrashPlants = [...trashPlants].sort((a, b) => {
+    return new Date(b.deletedAt) - new Date(a.deletedAt);
+  });
 
   const sortedPlants = [...filteredPlants].sort((a, b) => {
     const aPinned = !!a.pinned;
@@ -338,5 +399,12 @@ export function usePlants(user) {
     togglePinPlant,
     toggleHidePlant,
     sortedPlants,
+    trashPlants,
+    restorePlant,
+    permanentlyDeletePlant,
+    showTrash,
+    setShowTrash,
+    getDaysUntilDelete,
+    sortedTrashPlants,
   };
 }
