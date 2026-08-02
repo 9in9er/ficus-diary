@@ -137,6 +137,8 @@ export function usePlants(user) {
 
     await updateDoc(plantRef, {
         deletedAt: new Date().toISOString(),
+        hidden: false,
+        pinned: false,
     });
   };
 
