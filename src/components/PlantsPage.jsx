@@ -31,7 +31,9 @@ function PlantsPage() {
         handleAddPlant,
         handleDeletePlant,
         handleWaterPlant,
+        handleFertilizePlant,
         deleteWateringEntry,
+        deleteFertilizingEntry,
         handlePhotoChange,
         addNoteToPlant,
         deleteNoteFromPlant,
@@ -41,8 +43,8 @@ function PlantsPage() {
         saveEditPlant,
         cancelEdit,
         formatDate,
-        getLastWatering,
         getDaysSinceLastWatering,
+        getDaysSinceLastFertilizing,
         togglePinPlant,
         toggleHidePlant,
         showOnlyHidden,
@@ -169,12 +171,14 @@ function PlantsPage() {
                             saveEditPlant={saveEditPlant}
                             cancelEdit={cancelEdit}
                             handleWaterPlant={handleWaterPlant}
+                            handleFertilizePlant={handleFertilizePlant}
                             deleteWateringEntry={deleteWateringEntry}
+                            deleteFertilizingEntry={deleteFertilizingEntry}
                             handleEditPhotoChange={handleEditPhotoChange}
                             handleDeletePlant={handleDeletePlant}
                             formatDate={formatDate}
-                            getLastWatering={getLastWatering}
                             getDaysSinceLastWatering={getDaysSinceLastWatering}
+                            getDaysSinceLastFertilizing={getDaysSinceLastFertilizing}
                             togglePinPlant={togglePinPlant}
                             toggleHidePlant={toggleHidePlant}
                             addNoteToPlant={addNoteToPlant}
@@ -203,7 +207,9 @@ function PlantsPage() {
                                     saveEditPlant={saveEditPlant}
                                     cancelEdit={cancelEdit}
                                     handleWaterPlant={handleWaterPlant}
+                                    handleFertilizePlant={handleFertilizePlant}
                                     deleteWateringEntry={deleteWateringEntry}
+                                    deleteFertilizingEntry={deleteFertilizingEntry}
                                     handleEditPhotoChange={handleEditPhotoChange}
                                     handleDeletePlant={handleDeletePlant}
                                     togglePinPlant={togglePinPlant}
@@ -213,8 +219,8 @@ function PlantsPage() {
                                     noteText={noteTextByPlant[plant.id] || ""}
                                     changeNoteText={changeNoteText}
                                     formatDate={formatDate}
-                                    getLastWatering={getLastWatering}
                                     getDaysSinceLastWatering={getDaysSinceLastWatering}
+                                    getDaysSinceLastFertilizing ={getDaysSinceLastFertilizing}
                                     showOnlyHidden={showOnlyHidden}
                                     isTrash={true}
                                     restorePlant={restorePlant}
