@@ -19,6 +19,7 @@ html {
 body {
   font-family: 'Roboto Condensed', sans-serif;
   font-size: rem-convert(16px);
+  background-color: #f5f5f5;
 }
 
 .preloader {
@@ -103,6 +104,11 @@ input {
   border-radius: rem-convert(5px);
 
   cursor: pointer;
+    
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
 
   &.btnSubmit {
     background: $pixelatedGrassColor;

@@ -91,11 +91,6 @@ header {
     &.btnToggleHidden--active {
       background: $grayBgColor;
     }
-    
-    &:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
-    }
   }
 
   .btnTrash {
@@ -105,11 +100,6 @@ header {
     
     &.btnTrash--active {
       background: $grayBgColor;
-    }
-    
-    &:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
     }
   }
 

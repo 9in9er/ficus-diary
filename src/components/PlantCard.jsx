@@ -200,8 +200,6 @@ function PlantCard({
                 </p>
 
                 <div className='notesBlock'>
-                  <h4>Заметки</h4>
-
                   {!isTrash && (
                     <div className='notesAdd'>
                       <input
