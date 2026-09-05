@@ -116,6 +116,7 @@ export function usePlants(user) {
       photo,
       acquiredAt,
       wateringLog: [],
+      fertilizingLog: [],
       notes: [],
       userId: user.uid,
       createdAt: new Date().toISOString(),
@@ -171,6 +172,23 @@ export function usePlants(user) {
     });
   };
 
+  const handleFertilizePlant = async (id, fertilizingLog) => {
+    const prevLog = Array.isArray(fertilizingLog) ? fertilizingLog : [];
+    const newEntry = new Date().toISOString();
+
+    const extendedLog = [...prevLog, newEntry];
+
+    const limitedLog =
+      extendedLog.length > 8 ?
+        extendedLog.slice(extendedLog.length - 8) :
+        extendedLog;
+
+    const plantRef = doc(db, 'plants', id);
+    await updateDoc(plantRef, {
+      fertilizingLog: limitedLog
+    });
+  };
+
   const deleteWateringEntry = async (id, wateringLog, entryToDelete) => {
     const prevLog = Array.isArray(wateringLog) ? wateringLog : [];
 
@@ -179,6 +197,17 @@ export function usePlants(user) {
     const plantRef = doc(db, 'plants', id);
     await updateDoc(plantRef, {
       wateringLog: updateLog,
+    });
+  };
+
+  const deleteFertilizingEntry = async (id, fertilizingLog, entryToDelete) => {
+    const prevLog = Array.isArray(fertilizingLog) ? fertilizingLog : [];
+
+    const updateLog = prevLog.filter((entry) => entry !== entryToDelete);
+
+    const plantRef = doc(db, 'plants', id);
+    await updateDoc(plantRef, {
+      fertilizingLog: updateLog,
     });
   };
 
@@ -276,15 +305,23 @@ export function usePlants(user) {
     return Math.max(diff, 0);
   };
 
-  const getLastWatering = (wateringLog) => {
-    if (!wateringLog.length) return 'Ещё не поливали';
-    return formatDate(wateringLog[wateringLog.length - 1]);
-  };
-
   const getDaysSinceLastWatering = (wateringLog) => {
     if (!wateringLog.length) return null;
 
     const lastDateIso = wateringLog[wateringLog.length - 1];
+    const last = new Date(lastDateIso);
+    const now = new Date();
+
+    const diffMs = now - last;
+    const diffDays = Math.floor(diffMs / (1000 * 60 *60 *24));
+
+    return diffDays;
+  };
+
+  const getDaysSinceLastFertilizing = (fertilizingLog) => {
+    if (!fertilizingLog.length) return null;
+
+    const lastDateIso = fertilizingLog[fertilizingLog.length - 1];
     const last = new Date(lastDateIso);
     const now = new Date();
 
@@ -386,7 +423,9 @@ export function usePlants(user) {
     handleAddPlant,
     handleDeletePlant,
     handleWaterPlant,
+    handleFertilizePlant,
     deleteWateringEntry,
+    deleteFertilizingEntry,
     handlePhotoChange,
     addNoteToPlant,
     deleteNoteFromPlant,
@@ -396,8 +435,8 @@ export function usePlants(user) {
     saveEditPlant,
     cancelEdit,
     formatDate,
-    getLastWatering,
     getDaysSinceLastWatering,
+    getDaysSinceLastFertilizing,
     togglePinPlant,
     toggleHidePlant,
     sortedPlants,

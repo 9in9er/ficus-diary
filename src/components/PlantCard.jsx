@@ -12,12 +12,14 @@ function PlantCard({
   saveEditPlant,
   cancelEdit,
   handleWaterPlant,
+  handleFertilizePlant,
   deleteWateringEntry,
+  deleteFertilizingEntry,
   handleEditPhotoChange,
   handleDeletePlant,
   formatDate,
-  getLastWatering,
   getDaysSinceLastWatering,
+  getDaysSinceLastFertilizing,
   togglePinPlant,
   toggleHidePlant,
   addNoteToPlant,
@@ -38,8 +40,10 @@ function PlantCard({
   );
   const latestNotes = sortedNotes.slice(0, 3);
   const olderNotes = sortedNotes.slice(3);
-  const log = Array.isArray(plant.wateringLog) ? plant.wateringLog : [];
-  const daysSinceLast = getDaysSinceLastWatering(log);
+  const wateringLog = Array.isArray(plant.wateringLog) ? plant.wateringLog : [];
+  const fertilizingLog = Array.isArray(plant.fertilizingLog) ? plant.fertilizingLog : [];
+  const daysSinceLast = getDaysSinceLastWatering(wateringLog);
+  const daysSinceLastFertilizing = getDaysSinceLastFertilizing(fertilizingLog);
   const isPinned = !!plant.pinned;
   const isHidden = !!plant.hidden;
 
@@ -109,35 +113,80 @@ function PlantCard({
                 )}
 
                 <div className='aboutWatering'>
-                  <p>
-                    <strong>Последний полив: <br /></strong>
-                    {/* {getLastWatering(log)} */}
-                    {daysSinceLast !== null && (
-                      <span> {daysSinceLast === 0 ? 'сегодня' : `${daysSinceLast} дн. назад`} </span>
-                    )}
-                  </p>
-
-                  {(log.length > 0 && !isTrash) && (
+                  {wateringLog.length > 0 && !isTrash ? (
                     <details>
-                      <summary>История поливов ({log.length})</summary>
+                      <summary>
+                        <strong>Последний полив: <br /></strong>
+                        <span>
+                          {daysSinceLast === 0
+                            ? 'сегодня'
+                            : `${daysSinceLast} дн. назад`}
+                        </span>
+                      </summary>
+
                       <ul className='wateringList'>
-                        {[...log].reverse().slice(0, 8).map((date, index) => (
+                        {[...wateringLog].reverse().map((date, index) => (
                           <li key={index}>
                             {formatDate(date)}
-                            {!isTrash && (
-                              <button
-                                className='btn btnDelete'
-                                type='button'
-                                onClick={() => deleteWateringEntry(plant.id, log, date)
-                                }
-                              >
-                                ✖
-                              </button>
-                            )}
+                            <button
+                              className='btn btnDelete'
+                              type='button'
+                              onClick={() =>
+                                deleteWateringEntry(plant.id, wateringLog, date)
+                              }
+                            >
+                              ✖
+                            </button>
                           </li>
                         ))}
                       </ul>
                     </details>
+                  ) : (
+                    <p>
+                      <strong>Последний полив: <br /></strong>
+                      <span>ещё не поливали</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className='aboutFertilizing'>
+                  {fertilizingLog.length > 0 && !isTrash ? (
+                    <details>
+                      <summary>
+                        <strong>Последнее удобрение: <br /></strong>
+                        <span>
+                          {daysSinceLastFertilizing === 0
+                            ? 'сегодня'
+                            : `${daysSinceLastFertilizing} дн. назад`}
+                        </span>
+                      </summary>
+
+                      <ul className='fertilizingList'>
+                        {[...fertilizingLog].reverse().map((date, index) => (
+                          <li key={index}>
+                            {formatDate(date)}
+                            <button
+                              className='btn btnDelete'
+                              type='button'
+                              onClick={() =>
+                                deleteFertilizingEntry(
+                                  plant.id,
+                                  fertilizingLog,
+                                  date
+                                )
+                              }
+                            >
+                              ✖
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : (
+                    <p>
+                      <strong>Последнее удобрение: <br /></strong>
+                      <span>ещё не удобряли</span>
+                    </p>
                   )}
                 </div>
 
@@ -274,9 +323,15 @@ function PlantCard({
                 <div className='btnsWrap cardBtns'>
                   <button
                     className='btn btnWatering'
-                    onClick={() => handleWaterPlant(plant.id, log)}
+                    onClick={() => handleWaterPlant(plant.id, wateringLog)}
                   >
                     💧
+                  </button>
+                  <button
+                    className='btn btnFertilizing'
+                    onClick={() => handleFertilizePlant(plant.id, fertilizingLog)}
+                  >
+                    🧪
                   </button>
                   {isDotsMenuOpen && (
                     <>
