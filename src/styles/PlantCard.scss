@@ -11,6 +11,8 @@
     margin-top: rem-convert(25px);
 
     .plantWrap {
+        background-color: #fff;
+
         display: flex;
         align-items: flex-start;
         position: relative;
@@ -52,12 +54,12 @@
             }
 
             .plantName {
-                width: calc(100% - rem-convert(145px));
+                width: calc(100% - rem-convert(150px));
 
                 margin-top: rem-convert(5px);
 
-                font-size: rem-convert(24px);
-                line-height: rem-convert(24px);
+                font-size: rem-convert(22px);
+                line-height: rem-convert(22px);
             }
 
             .plantNameMob {
