@@ -61,7 +61,7 @@ function PlantCard({
                     type='text'
                     value={editPlant.name}
                     onChange={(e) =>
-                      startEditPlant({ ...plant, name: e.target.value })
+                      startEditPlant({ ...editPlant, id: plant.id, name: e.target.value })
                     }
                   />
                 </label>
@@ -72,7 +72,7 @@ function PlantCard({
                     type='date'
                     value={editPlant.acquiredAt}
                     onChange={(e) =>
-                      startEditPlant({ ...plant, acquiredAt: e.target.value })
+                      startEditPlant({ ...editPlant, id: plant.id, acquiredAt: e.target.value })
                     }
                   />
                 </label>
