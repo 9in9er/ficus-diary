@@ -145,30 +145,6 @@ footer {
   }
 }
 
-footer {
-  width: 95%;
-  max-width: rem-convert(1920px);
-
-  position: relative;
-
-  margin: 0 auto;
-  padding-top: rem-convert(15px);
-  padding-bottom: rem-convert(15px);
-
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-
-  .contacts {
-    .contactsIcon {
-      width: rem-convert(35px);
-      height: rem-convert(35px);
-
-      margin-left: rem-convert(10px);
-    }
-  }
-}
-
 .btnScrollTop {
   background-color: $pixelatedGrassColor;
 

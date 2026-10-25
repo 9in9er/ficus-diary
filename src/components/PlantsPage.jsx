@@ -8,9 +8,6 @@ import Header from './Header';
 
 function PlantsPage() {
     const auth = useAuth();
-    const {
-        handleLogout,
-    } = useAuth();
     
     const {
         plants,
@@ -65,7 +62,6 @@ function PlantsPage() {
                 <Header 
                     showCount={true}
                     count={plants.length - trashPlants.length}
-                    onLogout={handleLogout}
                 />
 
                 <button className='btn btnLogOut' onClick={auth.handleLogout}>
@@ -141,7 +137,7 @@ function PlantsPage() {
                     </div>
 
                     <button
-                        className={`btn btnToggleHidden ${showOnlyHidden ? 'active' : ''}`}
+                        className={`btn btnToggleHidden ${showOnlyHidden ? 'btnToggleHidden--active' : ''}`}
                         onClick={() => setShowOnlyHidden(!showOnlyHidden)}
                         title={showOnlyHidden ? 'Показать все растения' : 'Показать скрытые растения'}
                     >
@@ -149,7 +145,7 @@ function PlantsPage() {
                     </button>
 
                     <button
-                        className="btn btnTrash"
+                        className={`btn btnTrash ${showTrash ? 'btnTrash--active' : ''}`}
                         onClick={() => setShowTrash(!showTrash)}
                     >
                         {showTrash
