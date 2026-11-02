@@ -96,164 +96,164 @@ function PlantCard({
         ) : (
           <>
             <div className='aboutPlant'>
-              <h3 className='plantNameMob'>{plant.name}</h3>
-              <div className='photoInfo'>
-                {plant.photo && (
-                  <img
-                    className='plantPhoto'
-                    src={plant.photo}
-                    alt={plant.name}
-                  />
-                )}
+              <h3 className='plantName'>{plant.name}</h3>
+              <div className="aboutPlantWrap">
+                <div className='photoInfo'>
+                  {plant.photo && (
+                    <img
+                      className='plantPhoto'
+                      src={plant.photo}
+                      alt={plant.name}
+                    />
+                  )}
 
-                <div className='aboutWatering'>
-                  {wateringLog.length > 0 && !isTrash ? (
-                    <details>
-                      <summary>
+                  <div className='aboutWatering'>
+                    {wateringLog.length > 0 && !isTrash ? (
+                      <details>
+                        <summary>
+                          <strong>Последний полив: <br /></strong>
+                          <span>
+                            {daysSinceLast === 0
+                              ? 'сегодня'
+                              : `${daysSinceLast} дн. назад`}
+                          </span>
+                        </summary>
+
+                        <ul className='wateringList'>
+                          {[...wateringLog].reverse().map((date) => (
+                            <li key={date}>
+                              {formatDate(date)}
+                              <button
+                                className='btn btnDelete'
+                                type='button'
+                                onClick={() =>
+                                  deleteWateringEntry(plant.id, wateringLog, date)
+                                }
+                              >
+                                ✖
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : (
+                      <p>
                         <strong>Последний полив: <br /></strong>
-                        <span>
-                          {daysSinceLast === 0
-                            ? 'сегодня'
-                            : `${daysSinceLast} дн. назад`}
-                        </span>
-                      </summary>
+                        <span>ещё не поливали</span>
+                      </p>
+                    )}
+                  </div>
 
-                      <ul className='wateringList'>
-                        {[...wateringLog].reverse().map((date) => (
-                          <li key={date}>
-                            {formatDate(date)}
-                            <button
-                              className='btn btnDelete'
-                              type='button'
-                              onClick={() =>
-                                deleteWateringEntry(plant.id, wateringLog, date)
-                              }
-                            >
-                              ✖
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  ) : (
-                    <p>
-                      <strong>Последний полив: <br /></strong>
-                      <span>ещё не поливали</span>
-                    </p>
-                  )}
-                </div>
+                  <div className='aboutFertilizing'>
+                    {fertilizingLog.length > 0 && !isTrash ? (
+                      <details>
+                        <summary>
+                          <strong>Последнее удобрение: <br /></strong>
+                          <span>
+                            {daysSinceLastFertilizing === 0
+                              ? 'сегодня'
+                              : `${daysSinceLastFertilizing} дн. назад`}
+                          </span>
+                        </summary>
 
-                <div className='aboutFertilizing'>
-                  {fertilizingLog.length > 0 && !isTrash ? (
-                    <details>
-                      <summary>
+                        <ul className='fertilizingList'>
+                          {[...fertilizingLog].reverse().map((date) => (
+                            <li key={date}>
+                              {formatDate(date)}
+                              <button
+                                className='btn btnDelete'
+                                type='button'
+                                onClick={() =>
+                                  deleteFertilizingEntry(
+                                    plant.id,
+                                    fertilizingLog,
+                                    date
+                                  )
+                                }
+                              >
+                                ✖
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : (
+                      <p>
                         <strong>Последнее удобрение: <br /></strong>
-                        <span>
-                          {daysSinceLastFertilizing === 0
-                            ? 'сегодня'
-                            : `${daysSinceLastFertilizing} дн. назад`}
-                        </span>
-                      </summary>
+                        <span>ещё не удобряли</span>
+                      </p>
+                    )}
+                  </div>
 
-                      <ul className='fertilizingList'>
-                        {[...fertilizingLog].reverse().map((date) => (
-                          <li key={date}>
-                            {formatDate(date)}
-                            <button
-                              className='btn btnDelete'
-                              type='button'
-                              onClick={() =>
-                                deleteFertilizingEntry(
-                                  plant.id,
-                                  fertilizingLog,
-                                  date
-                                )
-                              }
-                            >
-                              ✖
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  ) : (
-                    <p>
-                      <strong>Последнее удобрение: <br /></strong>
-                      <span>ещё не удобряли</span>
-                    </p>
-                  )}
                 </div>
+                <div className='textInfos'>
+                  <p className='dateOfAppearance'>
+                    <strong>Дата появления: </strong>
+                    {plant.acquiredAt ? formatDate(plant.acquiredAt) : 'неизвестно'}
+                  </p>
 
-              </div>
-              <div className='textInfos'>
-                <h3 className='plantName'>{plant.name}</h3>
-                
-                <p className='dateOfAppearance'>
-                  <strong>Дата появления: </strong>
-                  {plant.acquiredAt ? formatDate(plant.acquiredAt) : 'неизвестно'}
-                </p>
+                  <div className='notesBlock'>
+                    {!isTrash && (
+                      <div className='notesAdd'>
+                        <input
+                          className='input notesInput'
+                          type='text'
+                          placeholder='Новая заметка...'
+                          value={noteText}
+                          onChange={(e) => changeNoteText(plant.id, e.target.value)}
+                        />
+                        <button
+                          className='btn btnSubmit'
+                          type='button'
+                          onClick={() => {
+                            addNoteToPlant(plant.id, notes, noteText);
+                            changeNoteText(plant.id, '');
+                          }}
+                        >
+                          ↩
+                        </button>
+                      </div>
+                    )}
 
-                <div className='notesBlock'>
-                  {!isTrash && (
-                    <div className='notesAdd'>
-                      <input
-                        className='input notesInput'
-                        type='text'
-                        placeholder='Новая заметка...'
-                        value={noteText}
-                        onChange={(e) => changeNoteText(plant.id, e.target.value)}
-                      />
-                      <button
-                        className='btn btnSubmit'
-                        type='button'
-                        onClick={() => {
-                          addNoteToPlant(plant.id, notes, noteText);
-                          changeNoteText(plant.id, '');
-                        }}
-                      >
-                        ↩
-                      </button>
+                    {sortedNotes.length === 0 && (
+                      <p className='notesEmpty'>Пока нет заметок.</p>
+                    )}
+
+                    {sortedNotes.length > 0 && (
+                      <>
+                        <ul className='notesList'>
+                          {latestNotes.map(renderNoteItem)}
+                        </ul>
+                        {(olderNotes.length > 0 && !isTrash) && (
+                          <details className='notesMore'>
+                            <summary>
+                              Показать все заметки ({sortedNotes.length - 3})
+                            </summary>
+                            <ul className='notesList'>
+                              {olderNotes.map(renderNoteItem)}
+                            </ul>
+                          </details>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {isTrash && (
+                    <div className="trashInfo">
+                        <p>
+                            Удалено:{' '}
+                            {formatDate(plant.deletedAt)}
+                        </p>
+
+                        <p>
+                            До удаления осталось:{' '}
+                              <span>{getDaysUntilDelete(plant.deletedAt)}
+                            дн.</span>
+                        </p>
+
                     </div>
                   )}
-
-                  {sortedNotes.length === 0 && (
-                    <p className='notesEmpty'>Пока нет заметок.</p>
-                  )}
-
-                  {sortedNotes.length > 0 && (
-                    <>
-                      <ul className='notesList'>
-                        {latestNotes.map(renderNoteItem)}
-                      </ul>
-                      {(olderNotes.length > 0 && !isTrash) && (
-                        <details className='notesMore'>
-                          <summary>
-                            Показать все заметки ({sortedNotes.length - 3})
-                          </summary>
-                          <ul className='notesList'>
-                            {olderNotes.map(renderNoteItem)}
-                          </ul>
-                        </details>
-                      )}
-                    </>
-                  )}
                 </div>
-
-                {isTrash && (
-                  <div className="trashInfo">
-                      <p>
-                          Удалено:{' '}
-                          {formatDate(plant.deletedAt)}
-                      </p>
-
-                      <p>
-                          До удаления осталось:{' '}
-                            <span>{getDaysUntilDelete(plant.deletedAt)}
-                          дн.</span>
-                      </p>
-
-                  </div>
-                )}
               </div>
               
               {!isTrash && (
