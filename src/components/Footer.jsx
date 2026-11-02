@@ -13,10 +13,10 @@ function Footer() {
             </span>
         </div>
         <div className='contacts'>
-            <a href='https://t.me/my_plants_app' alt='telegram'>
+            <a href='https://t.me/my_plants_app' target="_blank" rel="noopener noreferrer">
                 <img src={tgIcon} className='contactsIcon' alt='telegram' />
             </a>
-            <a href='mailto:mo.9in9er@gmail.com' alt='mo.9in9er@gmail.com'>
+            <a href='mailto:mo.9in9er@gmail.com'>
                 <img src={emailIcon} className='contactsIcon' alt='email' />
             </a>
         </div>

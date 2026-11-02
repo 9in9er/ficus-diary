@@ -262,10 +262,10 @@ export function usePlants(user) {
     const file = e.target.files[0];
     if (!file) return;
     resizeImageTo150px(file, (dataUrl) =>
-      setEditPlant({
-        ...editPlant,
+      setEditPlant((prev) => ({
+        ...prev,
         photo: dataUrl
-      })
+      }))
     );
   };
 
@@ -305,31 +305,24 @@ export function usePlants(user) {
     return Math.max(diff, 0);
   };
 
-  const getDaysSinceLastWatering = (wateringLog) => {
-    if (!wateringLog.length) return null;
+  const getDaysSinceLastAction = (log) => {
+    if (!Array.isArray(log) || !log.length) return null;
 
-    const lastDateIso = wateringLog[wateringLog.length - 1];
+    const lastDateIso = log[log.length - 1];
     const last = new Date(lastDateIso);
     const now = new Date();
 
-    const diffMs = now - last;
-    const diffDays = Math.floor(diffMs / (1000 * 60 *60 *24));
-
-    return diffDays;
-  };
-
-  const getDaysSinceLastFertilizing = (fertilizingLog) => {
-    if (!fertilizingLog.length) return null;
-
-    const lastDateIso = fertilizingLog[fertilizingLog.length - 1];
-    const last = new Date(lastDateIso);
-    const now = new Date();
+    // Сбрасываем время до полуночи, чтобы считать календарные дни, а не 24-часовые отрезки
+    last.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
 
     const diffMs = now - last;
-    const diffDays = Math.floor(diffMs / (1000 * 60 *60 *24));
-
-    return diffDays;
+    return Math.round(diffMs / (1000 * 60 * 60 * 24));
   };
+
+  const getDaysSinceLastWatering = (wateringLog) => getDaysSinceLastAction(wateringLog);
+  const getDaysSinceLastFertilizing = (fertilizingLog) => getDaysSinceLastAction(fertilizingLog);
+  
 
   const togglePinPlant = async (id, currentPinned) => {
     const plantRef = doc(db, 'plants', id);
