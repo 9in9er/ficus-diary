@@ -61,7 +61,7 @@ function PlantsPage() {
             <div className='mainBlock'>
                 <Header 
                     showCount={true}
-                    count={plants.length - trashPlants.length}
+                    count={showTrash ? sortedTrashPlants.length : sortedPlants.length}
                 />
 
                 <button className='btn btnLogOut' onClick={auth.handleLogout}>
