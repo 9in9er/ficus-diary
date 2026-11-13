@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import '../styles/PlantCard.scss';
 
-import dotsMenuIcon from '../i/dots-menu.svg';
-import closeIcon from '../i/close.svg';
+import iconEmojiDroplet from '../i/icons/droplet.svg';
+import iconEmojiTestTube from '../i/icons/flask-conical.svg';
+import iconEmojiPencil from '../i/icons/pencil.svg';
+import iconEmojiPushpin from '../i/icons/pin.svg';
+import iconEmojiEye from '../i/icons/eye.svg';
+import iconEmojiEyeOff from '../i/icons/eye-off.svg';
+import iconEmojiWastebasket from '../i/icons/trash.svg';
+import iconEmojiShovel from '../i/icons/shovel.svg';
+
+import dotsMenuIcon from '../i/icons/dots-menu.svg';
+import closeIcon from '../i/icons/close.svg';
 
 import PlantForm from './PlantForm';
 
@@ -22,6 +31,7 @@ function PlantCard({
   formatDate,
   getDaysSinceLastWatering,
   getDaysSinceLastFertilizing,
+  toggleNeedReplant,
   togglePinPlant,
   toggleHidePlant,
   addNoteToPlant,
@@ -46,6 +56,7 @@ function PlantCard({
   const fertilizingLog = Array.isArray(plant.fertilizingLog) ? plant.fertilizingLog : [];
   const daysSinceLast = getDaysSinceLastWatering(wateringLog);
   const daysSinceLastFertilizing = getDaysSinceLastFertilizing(fertilizingLog);
+  const needReplant = !!plant.replanted;
   const isPinned = !!plant.pinned;
   const isHidden = !!plant.hidden;
 
@@ -74,7 +85,10 @@ function PlantCard({
   );
 
   return (
-    <div className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isTrash ? "plantWrap--trash" : ""}`}>
+    <div
+      className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isTrash ? "plantWrap--trash" : ""}`}
+      onMouseLeave={() => setIsDotsMenuOpen(false)}
+    >
       <div className='plantInfo'>
         {isEditing ? (
           <PlantForm
@@ -96,6 +110,7 @@ function PlantCard({
         ) : (
           <>
             <div className='aboutPlant'>
+              <div className={`badge badge--replant ${needReplant ? 'badge--active' : ''}`}><img src={iconEmojiShovel} alt='iconEmojiShovel'/></div>
               <h3 className='plantName'>{plant.name}</h3>
               <div className="aboutPlantWrap">
                 <div className='photoInfo'>
@@ -262,13 +277,17 @@ function PlantCard({
                     className='btn btnWatering'
                     onClick={() => handleWaterPlant(plant.id, wateringLog)}
                   >
-                    💧
+                    <span>
+                      <img src={iconEmojiDroplet} alt='iconEmojiDroplet'/>
+                    </span>
                   </button>
                   <button
                     className='btn btnFertilizing'
                     onClick={() => handleFertilizePlant(plant.id, fertilizingLog)}
                   >
-                    🧪
+                    <span>
+                      <img src={iconEmojiTestTube} alt='iconEmojiTestTube'/>
+                    </span>
                   </button>
                   {isDotsMenuOpen && (
                     <>
@@ -276,25 +295,44 @@ function PlantCard({
                         className='btn btnEdit'
                         onClick={() => startEditPlant(plant)}
                       >
-                        ✏️
+                        <span>
+                          <img src={iconEmojiPencil} alt='iconEmojiPencil'/>
+                        </span>
                       </button>
                       <button
                         className={`btn btnPin ${isPinned ? 'btnPin--active' : ''}`}
                         onClick={() => togglePinPlant(plant.id, isPinned)}
                       >
-                        <span>📌</span>
+                        <span>
+                          <img src={iconEmojiPushpin} alt='iconEmojiPushpin'/>
+                        </span>
+                      </button>
+                      <button
+                        className={`btn btnReplant ${needReplant ? 'btnReplant--active' : ''}`}
+                        onClick={() => toggleNeedReplant(plant.id, needReplant)}
+                      >
+                        <span>
+                          <img src={iconEmojiShovel} alt='iconEmojiShovel'/>
+                        </span>
                       </button>
                       <button
                         className={`btn btnHide ${isHidden ? 'btnHide--active' : ''}`}
                         onClick={() => toggleHidePlant(plant.id, isHidden)}
                       >
-                        👁️
+                        <span>
+                          <img src={iconEmojiEye} alt='iconEmojiEye'/>
+                        </span>
+                        <span>
+                          <img src={iconEmojiEyeOff} alt='iconEmojiEyeOff'/>
+                        </span>
                       </button>
                       <button
                         className='btn btnDelete'
                         onClick={() => handleDeletePlant(plant.id)}
                       >
-                        🗑️
+                        <span>
+                          <img src={iconEmojiWastebasket} alt='iconEmojiWastebasket'/>
+                        </span>
                       </button>
                     </>
                   )}
@@ -303,9 +341,9 @@ function PlantCard({
                     onClick={() => setIsDotsMenuOpen((prev) => !prev)}
                   >
                     {isDotsMenuOpen ? (
-                      <img src={closeIcon} alt='close'/>
+                      <span><img src={closeIcon} alt='close'/></span>
                     ) : (
-                      <img src={dotsMenuIcon} alt='menu'/>
+                      <span><img src={dotsMenuIcon} alt='menu'/></span>
                     )}
                   </button>
                 </div>
