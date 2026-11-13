@@ -6,6 +6,11 @@ import ScrollToTop from './ScrollToTop';
 import Footer from './Footer';
 import Header from './Header';
 
+import iconEmojiUnlocked from '../i/icons/unlock.svg';
+import iconEmojiLocked from '../i/icons/lock.svg';
+import iconEmojiWastebasket from '../i/icons/trash.svg';
+import iconEmojiHerb from '../i/icons/sprout.svg';
+
 function PlantsPage() {
     const auth = useAuth();
     
@@ -42,6 +47,7 @@ function PlantsPage() {
         formatDate,
         getDaysSinceLastWatering,
         getDaysSinceLastFertilizing,
+        toggleNeedReplant,
         togglePinPlant,
         toggleHidePlant,
         showOnlyHidden,
@@ -141,16 +147,28 @@ function PlantsPage() {
                         onClick={() => setShowOnlyHidden(!showOnlyHidden)}
                         title={showOnlyHidden ? 'Показать все растения' : 'Показать скрытые растения'}
                     >
-                        {showOnlyHidden ? '🔓 Все' : '🔒 Скрытые'}
+                        {showOnlyHidden ? (
+                            <>
+                                <span><img src={iconEmojiUnlocked} alt='iconEmojiUnlocked' /></span> Все
+                            </>) : (
+                            <>
+                                <span><img src={iconEmojiLocked} alt='iconEmojiLocked' /></span> Скрытые
+                            </>)}
                     </button>
 
                     <button
                         className={`btn btnTrash ${showTrash ? 'btnTrash--active' : ''}`}
                         onClick={() => setShowTrash(!showTrash)}
                     >
-                        {showTrash
-                            ? "🌱 Растения"
-                            : `🗑 Корзина (${trashPlants.length})`}
+                        {showTrash ? (
+                            <>
+                                <span><img src={iconEmojiHerb} alt='iconEmojiHerb' /></span> Растения
+                            </>
+                        ) : (
+                            <>
+                                <span><img src={iconEmojiWastebasket} alt='iconEmojiWastebasket' /></span> Корзина ({trashPlants.length})
+                            </>
+                        )}
                     </button>
 
                 </div>
@@ -175,6 +193,7 @@ function PlantsPage() {
                             formatDate={formatDate}
                             getDaysSinceLastWatering={getDaysSinceLastWatering}
                             getDaysSinceLastFertilizing={getDaysSinceLastFertilizing}
+                            toggleNeedReplant={toggleNeedReplant}
                             togglePinPlant={togglePinPlant}
                             toggleHidePlant={toggleHidePlant}
                             addNoteToPlant={addNoteToPlant}
@@ -208,6 +227,7 @@ function PlantsPage() {
                                     deleteFertilizingEntry={deleteFertilizingEntry}
                                     handleEditPhotoChange={handleEditPhotoChange}
                                     handleDeletePlant={handleDeletePlant}
+                                    toggleNeedReplant={toggleNeedReplant}
                                     togglePinPlant={togglePinPlant}
                                     toggleHidePlant={toggleHidePlant}
                                     addNoteToPlant={addNoteToPlant}

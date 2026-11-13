@@ -324,6 +324,13 @@ export function usePlants(user) {
   const getDaysSinceLastFertilizing = (fertilizingLog) => getDaysSinceLastAction(fertilizingLog);
   
 
+  const toggleNeedReplant = async (id, currentPlantToReplant) => {
+    const plantRef = doc(db, 'plants', id);
+    await updateDoc(plantRef, {
+      replanted: !currentPlantToReplant,
+    });
+  };
+
   const togglePinPlant = async (id, currentPinned) => {
     const plantRef = doc(db, 'plants', id);
     await updateDoc(plantRef, {
@@ -430,6 +437,7 @@ export function usePlants(user) {
     formatDate,
     getDaysSinceLastWatering,
     getDaysSinceLastFertilizing,
+    toggleNeedReplant,
     togglePinPlant,
     toggleHidePlant,
     sortedPlants,

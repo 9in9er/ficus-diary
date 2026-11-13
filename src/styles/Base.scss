@@ -1,5 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&display=swap');
 @import "sass-rem";
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&display=swap');
+
 
 $sunflowerColor: #ffc312;
 $radiantYellowColor: #f79f1f;
@@ -94,6 +95,7 @@ input {
 }
 
 .btn {
+  font-family: inherit;
   font-size: rem-convert(14px);
   line-height: rem-convert(14px);
   color: #fff;
@@ -103,7 +105,19 @@ input {
   border: none;
   border-radius: rem-convert(5px);
 
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-around;
+
   cursor: pointer;
+
+  span {
+    img {
+      width: rem-convert(18px);
+      height: rem-convert(18px);
+    }
+  }
     
   &:hover {
     opacity: 0.9;
@@ -128,6 +142,20 @@ input {
     background: #fff;
   }
 
+  &.btnReplant {
+    filter: grayscale(1);
+    span {
+        display: block;
+    }
+    &.btnReplant--active {
+      filter: grayscale(0);
+
+      span {
+        
+      }
+    }
+  }
+
   &.btnPin {
     filter: grayscale(1);
     span {
@@ -145,10 +173,31 @@ input {
   &.btnHide {
     filter: grayscale(0);
 
-    &.btnHide--active {
-      filter: grayscale(1);
+    span {
+      width: rem-convert(24px);
+      height: rem-convert(24px);
+      
+      position: absolute;
+      top: 0%;
+      left: 0%;
+      bottom: 0%;
+      right: 0%;
+      margin: auto;
 
-      opacity: 0.5;
+      &:last-child {
+        opacity: 0;
+      }
+    }
+
+    &.btnHide--active {
+      span {
+        &:first-child {
+          opacity: 0;
+        }
+        &:last-child {
+          opacity: 1;
+        }
+      }
     }
   }
 
@@ -158,16 +207,6 @@ input {
     position: absolute;
     top: rem-convert(4px);
     right: rem-convert(0px);
-  }
-
-  &.btnDotsMenu {
-    padding: rem-convert(5px 10px);
-
-    img {
-      width: 14px;
-
-      object-fit: contain;
-    }
   }
 
   &.btnToggle {

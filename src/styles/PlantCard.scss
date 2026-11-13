@@ -52,6 +52,66 @@
             .aboutPlant {
                 width: 100%;
 
+                .badge {
+                    background-color: $borderColor;
+
+                    width: rem-convert(30px);
+                    height: rem-convert(30px);
+
+                    position: absolute;
+                    top: rem-convert(-10px);
+                    left: rem-convert(10px);
+
+                    box-sizing: border-box;
+                    padding: rem-convert(5px 3px);
+
+                    opacity: 0;
+                    pointer-events: none;
+
+                    filter: drop-shadow(1px 2px 1px $grayBgColor);
+
+                    &:before {
+                        content: '';
+
+                        background-color: $borderColor;
+
+                        width: rem-convert(30px);
+                        height: rem-convert(5px);
+
+                        position: absolute;
+                        left: 0;
+                        bottom: rem-convert(-5px);
+                        right: 0;
+                        margin: auto;
+
+                        clip-path: polygon(50% 100%, 0 0, 100% 0);
+                    }
+
+                    &:after {
+                        content: '';
+
+                        background-color: $borderColorDark;
+
+                        width: rem-convert(5px);
+                        height: rem-convert(10px);
+
+                        position: absolute;
+                        top: 0;
+                        right: rem-convert(-5px);
+
+                        clip-path: polygon(0 100%, 0 0, 100% 100%);
+                    }
+
+                    &.badge--replant {
+
+                    }
+
+                    &.badge--active {
+                        opacity: 1;
+                        pointer-events: all;
+                    }
+                }
+
                 .plantName {
                     width: calc(100% - rem-convert(150px));
 
@@ -327,6 +387,14 @@
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    padding: rem-convert(0px 0px);
+
+                    span {
+                        img {
+                            width: rem-convert(24px);
+                            height: rem-convert(24px);
+                        }
+                    }
 
                     &.btnDelete {
                         background: initial;
