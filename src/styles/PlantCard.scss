@@ -1,6 +1,54 @@
 @import "sass-rem";
 @import './Base.scss';
 
+@mixin compactPlantCard {
+    .plantInfo {
+        .aboutPlant {
+            .plantName {
+                width: 100%;
+                overflow-wrap: anywhere;
+            }
+
+            .aboutPlantWrap {
+                flex-direction: column;
+
+                .photoInfo {
+                    width: 100%;
+
+                    .plantPhoto {
+                        max-width: 100%;
+                    }
+                }
+
+                .textInfos {
+                    width: 100%;
+
+                    .dateOfAppearance,
+                    .notesBlock {
+                        display: none;
+                    }
+                }
+            }
+        }
+    }
+
+    .btnsWrap {
+        position: static;
+        margin-top: rem-convert(15px);
+        box-shadow: none;
+
+        &.cardBtns {
+            flex-wrap: wrap;
+        }
+    }
+
+    &:not(.plantWrap--trash) {
+        .cardBtns .btn:not(.btnWatering):not(.btnFertilizing) {
+            display: none;
+        }
+    }
+}
+
 .plantListWrap {
     display: flex;
     flex-direction: row;
@@ -8,7 +56,7 @@
     flex-wrap: wrap;
     gap: rem-convert(15px);
 
-    margin-top: rem-convert(25px);
+    margin-top: rem-convert(15px);
 
     .plantWrap {
         background-color: #fff;
@@ -17,7 +65,7 @@
         align-items: flex-start;
         position: relative;
 
-        width: 24.36%;
+        width: calc((100% - rem-convert(45px)) / 4);
         min-height: rem-convert(180px);
 
         border-radius: rem-convert(10px);
@@ -289,7 +337,7 @@
                             }
 
                             .notesAdd {
-                                display: flex;
+                                display: flex;    flex-direction: column;
                                 gap: rem-convert(8px);
 
                                 margin-top: rem-convert(10px);
@@ -406,10 +454,17 @@
 }
 
 
-@media (max-width: 1865px) {
-    .plantListWrap {
+@media (min-width: 1751px) {
+    .plantListWrap--columns-3 {
         .plantWrap {
-            width: 32.72%;
+            width: calc((100% - rem-convert(30px)) / 3);
+        }
+    }
+
+    .plantListWrap--columns-8 {
+        .plantWrap {
+            width: calc((100% - rem-convert(105px)) / 8);
+            @include compactPlantCard;
         }
     }
 }
@@ -488,6 +543,27 @@
                         }
                     }
                 }
+            }
+        }
+    }
+
+    .plantListWrap--mobile-compact {
+        .plantWrap {
+            width: calc((100% - rem-convert(15px)) / 2);
+            min-width: 0;
+            @include compactPlantCard;
+
+            .plantInfo .aboutPlant .aboutPlantWrap {
+                .photoInfo,
+                .textInfos {
+                    display: block;
+                    margin-top: 0;
+                }
+            }
+
+            .btnsWrap.cardBtns .btn {
+                width: 44px;
+                height: 44px;
             }
         }
     }

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { usePlants } from '../hooks/usePlants';
 import { useAuth } from '../hooks/useAuth';
 import PlantForm from './PlantForm';
@@ -11,9 +12,32 @@ import iconEmojiLocked from '../i/icons/lock.svg';
 import iconEmojiWastebasket from '../i/icons/trash.svg';
 import iconEmojiHerb from '../i/icons/sprout.svg';
 import iconEmojiShovel from '../i/icons/shovel.svg';
+import { ReactComponent as GridThreeIcon } from '../i/icons/grid-3-columns.svg';
+import { ReactComponent as GridFourIcon } from '../i/icons/grid-4-columns.svg';
+import { ReactComponent as GridEightIcon } from '../i/icons/grid-8-columns.svg';
+import { ReactComponent as GridOneIcon } from '../i/icons/grid-1-column.svg';
+import { ReactComponent as GridTwoIcon } from '../i/icons/grid-2-columns.svg';
 
 function PlantsPage() {
     const auth = useAuth();
+    const [gridColumns, setGridColumns] = useState(
+        () => {
+            const savedColumns = Number(localStorage.getItem('plantsGridColumns'));
+            if (savedColumns === 5 || savedColumns === 6) return 8;
+            return [3, 4, 8].includes(savedColumns) ? savedColumns : 4;
+        }
+    );
+    const [mobileCompact, setMobileCompact] = useState(
+        () => localStorage.getItem('plantsMobileCompact') === 'true'
+    );
+
+    useEffect(() => {
+        localStorage.setItem('plantsGridColumns', String(gridColumns));
+    }, [gridColumns]);
+
+    useEffect(() => {
+        localStorage.setItem('plantsMobileCompact', String(mobileCompact));
+    }, [mobileCompact]);
     
     const {
         plants,
@@ -64,6 +88,8 @@ function PlantsPage() {
         getDaysUntilDelete,
         sortedTrashPlants
     } = usePlants(auth.user);
+
+    const plantListClassName = `plantListWrap plantListWrap--columns-${gridColumns} ${mobileCompact ? 'plantListWrap--mobile-compact' : ''}`;
     
     return (
         <>
@@ -110,6 +136,26 @@ function PlantsPage() {
                     >
                     Добавить растение
                     </button>
+
+                    <div className='gridControls gridControls--mobile' role='group' aria-label='Вид карточек на телефоне'>
+                        {[
+                            { compact: false, Icon: GridOneIcon, name: 'Обычные', label: 'Обычный вид: 1 карточка в ряду' },
+                            { compact: true, Icon: GridTwoIcon, name: 'Компактные', label: 'Компактный вид: 2 карточки в ряду' },
+                        ].map(({ compact, Icon, name, label }) => (
+                            <button
+                                key={name}
+                                type='button'
+                                className={`btn btnGridColumns ${mobileCompact === compact ? 'btnGridColumns--active' : ''}`}
+                                aria-pressed={mobileCompact === compact}
+                                aria-label={label}
+                                title={label}
+                                onClick={() => setMobileCompact(compact)}
+                            >
+                                <Icon aria-hidden='true' focusable='false' preserveAspectRatio='none' />
+                                <span className='gridControlsLabel'>{name}</span>
+                            </button>
+                        ))}
+                    </div>
                     
                     <div className="searchGroup">
                     <input
@@ -189,8 +235,29 @@ function PlantsPage() {
 
                 </div>
 
+                <div className='gridControls gridControls--desktop' role='group' aria-label='Вид карточек'>
+                    {[
+                        { columns: 3, Icon: GridThreeIcon, name: 'Крупные', label: 'Крупные: 3 карточки в ряду' },
+                        { columns: 4, Icon: GridFourIcon, name: 'Средние', label: 'Средние: 4 карточки в ряду' },
+                        { columns: 8, Icon: GridEightIcon, name: 'Компактные', label: 'Компактные: 8 карточек в ряду' },
+                    ].map(({ columns, Icon, name, label }) => (
+                        <button
+                            key={columns}
+                            type='button'
+                            className={`btn btnGridColumns ${gridColumns === columns ? 'btnGridColumns--active' : ''}`}
+                            aria-pressed={gridColumns === columns}
+                            aria-label={label}
+                            title={label}
+                            onClick={() => setGridColumns(columns)}
+                        >
+                            <Icon aria-hidden='true' focusable='false' preserveAspectRatio='none' />
+                            <span className='gridControlsLabel'>{name}</span>
+                        </button>
+                    ))}
+                </div>
+
                 {!showTrash && (
-                    <div className='plantListWrap'>
+                    <div className={plantListClassName}>
                         {!loadingPlants && showOnlyNeedReplant && sortedPlants.length === 0 && (
                             <p className='startMessage'>Нет растений для пересадки с учётом выбранных фильтров.</p>
                         )}
@@ -227,7 +294,7 @@ function PlantsPage() {
                 )}
 
                 {showTrash && (
-                    <div className="plantListWrap">
+                    <div className={plantListClassName}>
                         {sortedTrashPlants.length === 0 ? (
                             <p>Корзина пуста.</p>
                         ) : (
