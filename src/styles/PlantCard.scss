@@ -297,9 +297,15 @@
 
                                     margin-top: rem-convert(10px);
 
+                                    > div {
+                                        min-width: 0;
+                                    }
+
                                     .notesText {
                                         font-size: rem-convert(14px);
                                         line-height: rem-convert(14px);
+                                        white-space: pre-wrap;
+                                        overflow-wrap: anywhere;
                                     }
 
                                     .notesDate {
@@ -343,8 +349,16 @@
                                 margin-top: rem-convert(10px);
 
                                 .notesInput {
-                                    flex: 1;
-
+                                    width: 100%;
+                                    min-width: 0;
+                                    box-sizing: border-box;
+                                    resize: none;
+                                    overflow: hidden;
+                                    font-family: inherit;
+                                    font-size: rem-convert(14px);
+                                    line-height: rem-convert(18px);
+                                    border: rem-convert(1px) solid transparent;
+                                    border-bottom-color: $borderColor;
                                     padding: rem-convert(6px 8px);
                                 }
 
