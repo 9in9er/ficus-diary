@@ -1,4 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import useAutoResizeTextarea from '../hooks/useAutoResizeTextarea';
+import { formatDate, getDaysUntilDelete } from '../utils/plantDates';
+import PlantCareHistory from './PlantCareHistory';
 import '../styles/PlantCard.scss';
 
 import iconEmojiDroplet from '../i/icons/droplet.svg';
@@ -15,69 +18,20 @@ import closeIcon from '../i/icons/close.svg';
 
 import PlantForm from './PlantForm';
 
-function PlantCard({
-  plant,
-  editingId,
-  editPlant,
-  startEditPlant,
-  saveEditPlant,
-  cancelEdit,
-  handleWaterPlant,
-  handleFertilizePlant,
-  deleteWateringEntry,
-  deleteFertilizingEntry,
-  handleEditPhotoChange,
-  handleDeletePlant,
-  formatDate,
-  getDaysSinceLastWatering,
-  getDaysSinceLastFertilizing,
-  toggleNeedReplant,
-  togglePinPlant,
-  toggleHidePlant,
-  addNoteToPlant,
-  deleteNoteFromPlant,
-  noteText,
-  changeNoteText,
-  showOnlyHidden,
-  isTrash = false,
-  restorePlant,
-  permanentlyDeletePlant,
-  getDaysUntilDelete,
-}) {
+function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash = false }) {
+  const {
+    handleWaterPlant, handleFertilizePlant, deleteWateringEntry, deleteFertilizingEntry,
+    handleDeletePlant, toggleNeedReplant, togglePinPlant, toggleHidePlant,
+    addNoteToPlant, deleteNoteFromPlant, restorePlant, permanentlyDeletePlant,
+  } = actions;
+  const { editingId, draft: editPlant, startEdit: startEditPlant, cancelEdit, handlePhotoChange } = editor;
   const [isDotsMenuOpen, setIsDotsMenuOpen] = useState(false);
-  const noteInputRef = useRef(null);
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
   const isEditing = editingId === plant.id;
-
-  useLayoutEffect(() => {
-    const textarea = noteInputRef.current;
-    if (!textarea) return;
-
-    const resize = () => {
-      textarea.style.height = 'auto';
-      const borderHeight = textarea.offsetHeight - textarea.clientHeight;
-      textarea.style.height = `${textarea.scrollHeight + borderHeight}px`;
-    };
-
-    resize();
-
-    let resizeFrame = null;
-    let previousWidth = textarea.getBoundingClientRect().width;
-    const observer = new ResizeObserver(() => {
-      const width = textarea.getBoundingClientRect().width;
-      if (width !== previousWidth) {
-        previousWidth = width;
-        // Resize after observer notifications finish to avoid a resize loop.
-        cancelAnimationFrame(resizeFrame);
-        resizeFrame = requestAnimationFrame(resize);
-      }
-    });
-    observer.observe(textarea);
-
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(resizeFrame);
-    };
-  }, [noteText, isEditing, isTrash]);
+  const noteInputRef = useAutoResizeTextarea(noteText, isEditing, isTrash);
 
   const notes = plant.notes || [];
   const sortedNotes = [...notes].sort(
@@ -87,11 +41,42 @@ function PlantCard({
   const olderNotes = sortedNotes.slice(3);
   const wateringLog = Array.isArray(plant.wateringLog) ? plant.wateringLog : [];
   const fertilizingLog = Array.isArray(plant.fertilizingLog) ? plant.fertilizingLog : [];
-  const daysSinceLast = getDaysSinceLastWatering(wateringLog);
-  const daysSinceLastFertilizing = getDaysSinceLastFertilizing(fertilizingLog);
   const needReplant = !!plant.replanted;
   const isPinned = !!plant.pinned;
   const isHidden = !!plant.hidden;
+
+  const submitNote = async () => {
+    if (isSavingNote || !noteText.trim()) return;
+    setNoteError('');
+    setIsSavingNote(true);
+    try {
+      await addNoteToPlant(plant.id, notes, noteText);
+      onNoteTextChange('');
+    } catch {
+      setNoteError('Не удалось сохранить заметку. Попробуйте ещё раз.');
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  const submitEdit = async (event) => {
+    event.preventDefault();
+    if (isSavingEdit || editor.isProcessingPhoto) return;
+    if (!editPlant.name.trim()) {
+      setEditError('Введите название растения.');
+      return;
+    }
+    setEditError('');
+    setIsSavingEdit(true);
+    try {
+      await actions.savePlant(plant.id, editPlant);
+      cancelEdit();
+    } catch {
+      setEditError('Не удалось сохранить изменения. Попробуйте ещё раз.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const renderNoteItem = (note) => (
     <li key={note.id} className='notesItem'>
@@ -119,6 +104,7 @@ function PlantCard({
 
   return (
     <div
+      role='listitem'
       className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isTrash ? "plantWrap--trash" : ""}`}
       onMouseLeave={() => setIsDotsMenuOpen(false)}
     >
@@ -128,17 +114,17 @@ function PlantCard({
             name={editPlant.name}
             acquiredAt={editPlant.acquiredAt}
             onNameChange={(newName) =>
-              startEditPlant({ ...editPlant, id: plant.id, name: newName })
+              editor.setField('name', newName)
             }
             onDateChange={(newDate) =>
-              startEditPlant({ ...editPlant, id: plant.id, acquiredAt: newDate })
+              editor.setField('acquiredAt', newDate)
             }
-            onPhotoChange={handleEditPhotoChange}
-            onSubmit={(e) => {
-              e.preventDefault(); // чтобы страница не перезагружалась при отправке формы
-              saveEditPlant(plant.id);
-            }}
-            onCancel={cancelEdit}
+            onPhotoChange={handlePhotoChange}
+            onSubmit={submitEdit}
+            onCancel={() => { setEditError(''); cancelEdit(); }}
+            isSubmitting={isSavingEdit}
+            error={editError || editor.photoError}
+            isProcessingPhoto={editor.isProcessingPhoto}
           />
         ) : (
           <>
@@ -155,84 +141,26 @@ function PlantCard({
                     />
                   )}
 
-                  <div className='aboutWatering'>
-                    {wateringLog.length > 0 && !isTrash ? (
-                      <details>
-                        <summary>
-                          <strong>Последний полив: <br /></strong>
-                          <span>
-                            {daysSinceLast === 0
-                              ? 'сегодня'
-                              : `${daysSinceLast} дн. назад`}
-                          </span>
-                        </summary>
-
-                        <ul className='wateringList'>
-                          {[...wateringLog].reverse().map((date) => (
-                            <li key={date}>
-                              {formatDate(date)}
-                              <button
-                                className='btn btnDelete'
-                                type='button'
-                                onClick={() =>
-                                  deleteWateringEntry(plant.id, wateringLog, date)
-                                }
-                              >
-                                ✖
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    ) : (
-                      <p>
-                        <strong>Последний полив: <br /></strong>
-                        <span>ещё не поливали</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div className='aboutFertilizing'>
-                    {fertilizingLog.length > 0 && !isTrash ? (
-                      <details>
-                        <summary>
-                          <strong>Последнее удобрение: <br /></strong>
-                          <span>
-                            {daysSinceLastFertilizing === 0
-                              ? 'сегодня'
-                              : `${daysSinceLastFertilizing} дн. назад`}
-                          </span>
-                        </summary>
-
-                        <ul className='fertilizingList'>
-                          {[...fertilizingLog].reverse().map((date) => (
-                            <li key={date}>
-                              {formatDate(date)}
-                              <button
-                                className='btn btnDelete'
-                                type='button'
-                                onClick={() =>
-                                  deleteFertilizingEntry(
-                                    plant.id,
-                                    fertilizingLog,
-                                    date
-                                  )
-                                }
-                              >
-                                ✖
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    ) : (
-                      <p>
-                        <strong>Последнее удобрение: <br /></strong>
-                        <span>ещё не удобряли</span>
-                      </p>
-                    )}
-                  </div>
-
+                  <PlantCareHistory
+                    plantId={plant.id}
+                    log={wateringLog}
+                    title='Последний полив'
+                    emptyMessage='ещё не поливали'
+                    className='aboutWatering'
+                    listClassName='wateringList'
+                    isTrash={isTrash}
+                    onDelete={deleteWateringEntry}
+                  />
+                  <PlantCareHistory
+                    plantId={plant.id}
+                    log={fertilizingLog}
+                    title='Последнее удобрение'
+                    emptyMessage='ещё не удобряли'
+                    className='aboutFertilizing'
+                    listClassName='fertilizingList'
+                    isTrash={isTrash}
+                    onDelete={deleteFertilizingEntry}
+                  />
                 </div>
                 <div className='textInfos'>
                   <p className='dateOfAppearance'>
@@ -250,20 +178,21 @@ function PlantCard({
                           aria-label='Новая заметка'
                           placeholder='Новая заметка...'
                           value={noteText}
-                          onChange={(e) => changeNoteText(plant.id, e.target.value)}
+                          disabled={isSavingNote}
+                          onChange={(e) => onNoteTextChange(e.target.value)}
                         />
                         <button
                           className='btn btnSubmit'
                           type='button'
-                          onClick={() => {
-                            addNoteToPlant(plant.id, notes, noteText);
-                            changeNoteText(plant.id, '');
-                          }}
+                          onClick={submitNote}
+                          disabled={isSavingNote}
+                          aria-label='Сохранить заметку'
                         >
                           ↩
                         </button>
                       </div>
                     )}
+                    {noteError && <p className='formError' role='alert'>{noteError}</p>}
 
                     {sortedNotes.length === 0 && (
                       <p className='notesEmpty'>Пока нет заметок.</p>

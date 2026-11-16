@@ -1,27 +1,27 @@
-@import "sass-rem";
-@import './Base.scss';
+@use 'sass-rem' as rem;
+@use './variables' as *;
 
 .authToggle {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: rem-convert(10px);
+  gap: rem.convert(10px);
 
-  margin-top: rem-convert(10px);
+  margin-top: rem.convert(10px);
 }
 
 .authForm {
-  max-width: rem-convert(400px);
+  max-width: rem.convert(400px);
 
   display: flex;
   flex-direction: column;
-  gap: rem-convert(10px);
+  gap: rem.convert(10px);
 
-  margin: rem-convert(20px auto);
+  margin: rem.convert(20px auto);
 
   .authError {
-    font-size: rem-convert(14px);
-    line-height: rem-convert(14px);
+    font-size: rem.convert(14px);
+    line-height: rem.convert(14px);
     color: $redPigmentColor;
   }
 }
@@ -40,18 +40,18 @@
 
 .inputLogin,
 .inputPass {
-  padding: rem-convert(10px);
+  padding: rem.convert(10px);
 }
 
 .modalButtons {
   display: flex;
-  gap: rem-convert(10px);
-  margin-top: rem-convert(20px);
+  gap: rem.convert(10px);
+  margin-top: rem.convert(20px);
 }
 
 .resetMessage {
-  padding: rem-convert(10px);
-  margin: rem-convert(10px 0);
+  padding: rem.convert(10px);
+  margin: rem.convert(10px 0);
   
   &.success {
     color: $pixelatedGrassColor;

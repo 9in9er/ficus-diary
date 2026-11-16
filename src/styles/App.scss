@@ -1,5 +1,5 @@
-@import "sass-rem";
-@import './Base.scss';
+@use 'sass-rem' as rem;
+@use './variables' as *;
 
 
 header {
@@ -10,22 +10,35 @@ header {
     align-items: center;
 
     .titlePic {
-      width: rem-convert(40px);
-      height: rem-convert(40px);
+      width: rem.convert(40px);
+      height: rem.convert(40px);
 
-      margin-right: rem-convert(5px);
+      margin-right: rem.convert(5px);
     }
   }
 }
 
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: rem.convert(10px);
+
+  .btn {
+    text-decoration: none;
+  }
+
+}
+
 .mainBlock {
   width: 95%;
-  max-width: rem-convert(1920px);
+  max-width: rem.convert(1920px);
 
   position: relative;
 
   margin: 0 auto;
-  margin-top: rem-convert(10px);
+  margin-top: rem.convert(10px);
   box-sizing: border-box;
 
   .startMessage {
@@ -35,187 +48,15 @@ header {
   }
 }
 
-.topBar {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: rem-convert(10px);
-
-  margin-top: rem-convert(20px);
-
-  .searchGroup {
-    position: relative;
-    flex: 1;
-    min-width: rem-convert(200px);
-    width: 50%;
-
-    .searchInput {
-      display: block;
-
-      width: 100%;
-
-      padding: rem-convert(10px);
-      box-sizing: border-box;
-
-      font-size: rem-convert(14px);
-      line-height: rem-convert(14px);
-      color: $grayTextColor;
-    }
-
-    .clearSearch {
-      position: absolute;
-      top: 0;
-      right: rem-convert(10px);
-
-      background: none;
-      border: none;
-
-      font-size: rem-convert(26px);
-      color: $grayTextColor;
-      line-height: 1;
-
-      padding: rem-convert(6px);
-
-      opacity: 0.7;
-      cursor: pointer;
-      transition: opacity 0.2s ease;
-
-      &:hover {
-        opacity: 1;
-      }
-    }
-  }
-
-  .btnToggleHidden {
-    background: $grayBgColor;
-
-    width: rem-convert(120px);
-    
-    &.btnToggleHidden--active {
-      background: $pixelatedGrassColor;
-    }
-  }
-
-  .btnToggleReplant {
-    background: $grayBgColor;
-    width: rem-convert(150px);
-    flex-shrink: 0;
-
-    &.btnToggleReplant--active {
-      background: $pixelatedGrassColor;
-    }
-  }
-
-  .btnTrash {
-    background: $grayBgColor;
-
-    width: rem-convert(138px);
-    
-    &.btnTrash--active {
-      background: $pixelatedGrassColor;
-    }
-  }
-
-  .sortControls {
-    label {
-      font-size: rem-convert(14px);
-      line-height: rem-convert(14px);
-    }
-
-    select {
-      font-size: rem-convert(14px);
-      line-height: rem-convert(14px);
-
-      margin-left: rem-convert(6px);
-      padding: rem-convert(10px);
-
-      border: rem-convert(1px) solid $borderColor;
-    }
-  }
-}
-
-.gridControls {
-  display: flex;
-  gap: rem-convert(6px);
-  width: rem-convert(360px);
-  max-width: 100%;
-  box-sizing: border-box;
-  margin-top: rem-convert(15px);
-  margin-left: auto;
-  padding: rem-convert(6px);
-  background: #fff;
-  border: 1px solid $borderColor;
-  border-radius: rem-convert(12px);
-
-  .btnGridColumns {
-    background: #fff;
-    color: $grayTextColor;
-    border: 1px solid $borderColor;
-    border-radius: rem-convert(8px);
-    flex: 1;
-    min-width: 0;
-    min-height: rem-convert(58px);
-    padding: rem-convert(6px 10px);
-    flex-direction: column;
-    justify-content: center;
-    gap: rem-convert(4px);
-    transition: background-color 0.18s ease, border-color 0.18s ease;
-
-    svg {
-      width: rem-convert(40px);
-      height: rem-convert(24px);
-      flex-shrink: 0;
-      color: $grayBgColor;
-      transition: color 0.18s ease;
-    }
-
-    .gridControlsLabel {
-      font-size: rem-convert(11px);
-      line-height: rem-convert(14px);
-      font-weight: 600;
-    }
-
-    &:hover {
-      background: rgba($grayBgColor, 0.06);
-      border-color: rgba($grayTextColor, 0.5);
-      opacity: 1;
-      transform: none;
-    }
-
-    &:focus-visible {
-      outline: 2px solid $pixelatedGrassColor;
-      outline-offset: rem-convert(3px);
-    }
-
-    &.btnGridColumns--active {
-      background: rgba($pixelatedGrassColor, 0.06);
-      border-color: $pixelatedGrassColor;
-
-      svg {
-        color: $pixelatedGrassColor;
-      }
-
-      &:hover {
-        background: rgba($pixelatedGrassColor, 0.1);
-      }
-    }
-  }
-}
-
-.gridControls--mobile {
-  display: none;
-}
-
 footer {
   width: 95%;
-  max-width: rem-convert(1920px);
+  max-width: rem.convert(1920px);
 
   position: relative;
 
   margin: 0 auto;
-  padding-top: rem-convert(15px);
-  padding-bottom: rem-convert(15px);
+  padding-top: rem.convert(15px);
+  padding-bottom: rem.convert(15px);
 
   display: flex;
   flex-direction: row;
@@ -223,10 +64,10 @@ footer {
 
   .contacts {
     .contactsIcon {
-      width: rem-convert(35px);
-      height: rem-convert(35px);
+      width: rem.convert(35px);
+      height: rem.convert(35px);
 
-      margin-left: rem-convert(10px);
+      margin-left: rem.convert(10px);
     }
   }
 }
@@ -234,14 +75,14 @@ footer {
 .btnScrollTop {
   background-color: $pixelatedGrassColor;
 
-  width: rem-convert(40px);
-  height: rem-convert(40px);
+  width: rem.convert(40px);
+  height: rem.convert(40px);
 
   position: fixed;
-  right: rem-convert(20px);
-  bottom: rem-convert(20px);
+  right: rem.convert(20px);
+  bottom: rem.convert(20px);
 
-  padding-bottom: rem-convert(7px);
+  padding-bottom: rem.convert(7px);
 
   z-index: 1000;
 
@@ -249,7 +90,7 @@ footer {
   border: none;
 
   color: white;
-  font-size: rem-convert(20px);
+  font-size: rem.convert(20px);
 
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 
@@ -273,105 +114,32 @@ footer {
 
 
 @media (max-width: 1750px) {
-  .gridControls--desktop {
-    display: none;
-  }
-
-  .mainBlock {
-    width: rem-convert(1200px);
-  }
-
-  .topBar {
-    .searchGroup {
-      position: relative;
-      width: 30%;
-    }
-  }
-
+  .mainBlock,
   footer {
-    width: rem-convert(1200px);
+    width: rem.convert(1200px);
   }
 }
 
 @media (max-width: 1216px) {
-  .mainBlock {
-    width: rem-convert(600px);
-  }
-
+  .mainBlock,
   footer {
-    width: rem-convert(600px);
-  }
-
-  .topBar {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    flex-wrap: wrap;
-
-    .searchGroup {
-      flex: 0 0 100%;
-      min-width: 0;
-      width: 100%;
-      order: 3;
-
-      margin-top: rem-convert(10px);
-    }
+    width: rem.convert(600px);
   }
 }
 
 @media (max-width: 616px) {
-  .mainBlock {
-    width: 97%;
-  }
-
+  .mainBlock,
   footer {
     width: 97%;
-  }
-
-  .topBar {
-    .sortControls {
-      select {
-        width: 100%;
-
-        margin-left: 0;
-      }
-    }
-
-    .btnSubmit {
-      font-size: rem-convert(16px);
-      line-height: rem-convert(16px);
-    }
   }
 }
 
 @media (max-width: 480px) {
-  .gridControls--mobile {
-    display: flex;
-    width: rem-convert(240px);
-    margin-top: 0;
+  header .appTitle {
+    font-size: rem.convert(28px);
   }
+}
 
-  header {
-    .appTitle {
-      font-size: rem-convert(28px);
-    }
-  }
-
-  .topBar {
-    .sortControls {
-      width: 100%;
-
-      select {
-        font-size: rem-convert(13px);
-        line-height: rem-convert(13px);
-        padding: rem-convert(10px 7px);
-      }
-    }
-
-    .btnTrash,
-    .btnToggleReplant,
-    .btnToggleHidden {
-      width: 31%;
-    }
-  }
+.mainBlock.plantsPage {
+  width: 95%;
 }

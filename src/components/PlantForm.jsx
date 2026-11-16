@@ -8,9 +8,12 @@ function PlantForm({
   onPhotoChange,
   onSubmit,
   onCancel,
+  isSubmitting = false,
+  isProcessingPhoto = false,
+  error = '',
 }) {
   return (
-    <form className='mainForm' onSubmit={onSubmit}>
+    <form className='mainForm' onSubmit={onSubmit} aria-label='Данные растения' aria-busy={isSubmitting}>
       <div className='mainForm_wrap'>
         <div className='nameAndDate'>
           <label className='nameLabel'>
@@ -22,6 +25,7 @@ function PlantForm({
               value={name}
               onChange={(e) => onNameChange(e.target.value)}
               required
+              disabled={isSubmitting}
             />
           </label>
           <label className='dateLabel'>
@@ -31,6 +35,7 @@ function PlantForm({
               type='date'
               value={acquiredAt}
               onChange={(e) => onDateChange(e.target.value)}
+              disabled={isSubmitting}
             />
           </label>
         </div>
@@ -39,17 +44,20 @@ function PlantForm({
           type='file'
           accept='image/*'
           onChange={onPhotoChange}
+          disabled={isSubmitting}
         />
       </div>
 
+      {error && <p className='formError' role='alert'>{error}</p>}
       <div className='modalButtons'>
-        <button className='btn btnSubmit' type='submit'>
-          Сохранить
+        <button className='btn btnSubmit' type='submit' disabled={isSubmitting || isProcessingPhoto}>
+          {isSubmitting ? 'Сохраняем…' : isProcessingPhoto ? 'Обрабатываем фото…' : 'Сохранить'}
         </button>
         <button
           className='btn btnCancel'
           type='button'
           onClick={onCancel}
+          disabled={isSubmitting}
         >
           Отмена
         </button>

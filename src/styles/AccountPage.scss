@@ -1,0 +1,94 @@
+@use 'sass-rem' as rem;
+@use './variables' as *;
+
+.accountPage {
+  .accountBackLink {
+    display: inline-block;
+    margin-top: rem.convert(20px);
+    color: $pixelatedGrassColor;
+  }
+
+  .accountPanel {
+    max-width: rem.convert(480px);
+    margin: rem.convert(24px auto);
+    padding: rem.convert(24px);
+    background: #fff;
+    border: 1px solid $borderColor;
+    border-radius: rem.convert(8px);
+    box-sizing: border-box;
+
+    h1 {
+      font-size: rem.convert(28px);
+    }
+
+    h2 {
+      font-size: rem.convert(22px);
+    }
+  }
+
+  .accountEmail {
+    margin: rem.convert(8px 0 0);
+    color: $grayTextColor;
+    overflow-wrap: anywhere;
+  }
+
+  .passwordForm {
+    display: flex;
+    flex-direction: column;
+    gap: rem.convert(16px);
+    margin-top: rem.convert(28px);
+
+    p {
+      margin: 0;
+      line-height: 1.5;
+    }
+  }
+
+  .passwordHint,
+  .passwordField small {
+    color: $grayTextColor;
+  }
+
+  .passwordField {
+    display: flex;
+    flex-direction: column;
+    gap: rem.convert(8px);
+
+    input {
+      width: 100%;
+      min-width: 0;
+      padding: rem.convert(12px);
+      box-sizing: border-box;
+      border: 1px solid $borderColor;
+      border-radius: rem.convert(5px);
+      font: inherit;
+    }
+  }
+
+  .passwordError {
+    color: $redPigmentColor;
+  }
+
+  .passwordSuccess {
+    color: $pixelatedGrassColor;
+  }
+
+  .passwordActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: rem.convert(10px);
+  }
+
+  input:focus-visible,
+  .btn:focus-visible,
+  a:focus-visible {
+    outline: 2px solid $pixelatedGrassColor;
+    outline-offset: rem.convert(3px);
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
+  }
+}

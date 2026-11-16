@@ -2,7 +2,7 @@ import '../styles/AuthScreen.scss';
 
 import Header from '../components/Header';
 
-import { useAuth } from '../hooks/useAuth';
+import useAuthForm from '../hooks/useAuthForm';
 
 function AuthScreen() {
   const {
@@ -20,8 +20,8 @@ function AuthScreen() {
     resetEmail,
     setResetEmail,
     handlePasswordReset,
-    resetMessage,
-  } = useAuth();
+    resetFeedback,
+  } = useAuthForm();
 
   const isLogin = authMode === 'login';
 
@@ -46,9 +46,9 @@ function AuthScreen() {
                 required
               />
 
-              {resetMessage && (
-                <div className={`resetMessage ${resetMessage.includes('✅') ? 'success' : 'error'}`}>
-                  {resetMessage}
+              {resetFeedback && (
+                <div className={`resetMessage ${resetFeedback.status}`}>
+                  {resetFeedback.message}
                 </div>
               )}
 
@@ -100,7 +100,6 @@ function AuthScreen() {
             {isLogin ? 'Войти' : 'Зарегистрироваться'}
           </button>
 
-          {/* Переключатель режимов, использующий существующий .authToggle */}
           <div className="authToggle">
             {isLogin ? (
               <>
