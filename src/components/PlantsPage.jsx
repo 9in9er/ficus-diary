@@ -10,6 +10,7 @@ import iconEmojiUnlocked from '../i/icons/unlock.svg';
 import iconEmojiLocked from '../i/icons/lock.svg';
 import iconEmojiWastebasket from '../i/icons/trash.svg';
 import iconEmojiHerb from '../i/icons/sprout.svg';
+import iconEmojiShovel from '../i/icons/shovel.svg';
 
 function PlantsPage() {
     const auth = useAuth();
@@ -52,6 +53,8 @@ function PlantsPage() {
         toggleHidePlant,
         showOnlyHidden,
         setShowOnlyHidden,
+        showOnlyNeedReplant,
+        setShowOnlyNeedReplant,
         sortedPlants,
         trashPlants,
         restorePlant,
@@ -157,6 +160,19 @@ function PlantsPage() {
                     </button>
 
                     <button
+                        type='button'
+                        className={`btn btnToggleReplant ${showOnlyNeedReplant ? 'btnToggleReplant--active' : ''}`}
+                        onClick={() => {
+                            setShowOnlyNeedReplant((current) => !current);
+                            setShowTrash(false);
+                        }}
+                        aria-pressed={showOnlyNeedReplant}
+                        title={showOnlyNeedReplant ? 'Снять фильтр по пересадке' : 'Показать растения, нуждающиеся в пересадке'}
+                    >
+                        <span><img src={iconEmojiShovel} alt='' /></span> На пересадку
+                    </button>
+
+                    <button
                         className={`btn btnTrash ${showTrash ? 'btnTrash--active' : ''}`}
                         onClick={() => setShowTrash(!showTrash)}
                     >
@@ -175,6 +191,9 @@ function PlantsPage() {
 
                 {!showTrash && (
                     <div className='plantListWrap'>
+                        {!loadingPlants && showOnlyNeedReplant && sortedPlants.length === 0 && (
+                            <p className='startMessage'>Нет растений для пересадки с учётом выбранных фильтров.</p>
+                        )}
                         {sortedPlants.map((plant) => (
                         <PlantCard
                             key={plant.id}
