@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import '../styles/PlantCard.scss';
 
 import iconEmojiDroplet from '../i/icons/droplet.svg';
@@ -45,7 +45,40 @@ function PlantCard({
   getDaysUntilDelete,
 }) {
   const [isDotsMenuOpen, setIsDotsMenuOpen] = useState(false);
+  const noteInputRef = useRef(null);
   const isEditing = editingId === plant.id;
+
+  useLayoutEffect(() => {
+    const textarea = noteInputRef.current;
+    if (!textarea) return;
+
+    const resize = () => {
+      textarea.style.height = 'auto';
+      const borderHeight = textarea.offsetHeight - textarea.clientHeight;
+      textarea.style.height = `${textarea.scrollHeight + borderHeight}px`;
+    };
+
+    resize();
+
+    let resizeFrame = null;
+    let previousWidth = textarea.getBoundingClientRect().width;
+    const observer = new ResizeObserver(() => {
+      const width = textarea.getBoundingClientRect().width;
+      if (width !== previousWidth) {
+        previousWidth = width;
+        // Resize after observer notifications finish to avoid a resize loop.
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(resize);
+      }
+    });
+    observer.observe(textarea);
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(resizeFrame);
+    };
+  }, [noteText, isEditing, isTrash]);
+
   const notes = plant.notes || [];
   const sortedNotes = [...notes].sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
@@ -210,9 +243,11 @@ function PlantCard({
                   <div className='notesBlock'>
                     {!isTrash && (
                       <div className='notesAdd'>
-                        <input
+                        <textarea
+                          ref={noteInputRef}
                           className='input notesInput'
-                          type='text'
+                          rows={1}
+                          aria-label='Новая заметка'
                           placeholder='Новая заметка...'
                           value={noteText}
                           onChange={(e) => changeNoteText(plant.id, e.target.value)}
