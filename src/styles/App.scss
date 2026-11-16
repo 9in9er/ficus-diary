@@ -39,11 +39,15 @@ header {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: rem-convert(10px);
 
   margin-top: rem-convert(20px);
 
   .searchGroup {
     position: relative;
+    flex: 1;
+    min-width: rem-convert(200px);
     width: 50%;
 
     .searchInput {
@@ -89,7 +93,17 @@ header {
     width: rem-convert(120px);
     
     &.btnToggleHidden--active {
-      background: $grayBgColor;
+      background: $pixelatedGrassColor;
+    }
+  }
+
+  .btnToggleReplant {
+    background: $grayBgColor;
+    width: rem-convert(150px);
+    flex-shrink: 0;
+
+    &.btnToggleReplant--active {
+      background: $pixelatedGrassColor;
     }
   }
 
@@ -99,7 +113,7 @@ header {
     width: rem-convert(138px);
     
     &.btnTrash--active {
-      background: $grayBgColor;
+      background: $pixelatedGrassColor;
     }
   }
 
@@ -219,17 +233,11 @@ footer {
     flex-wrap: wrap;
 
     .searchGroup {
+      flex: 0 0 100%;
+      min-width: 0;
       width: 100%;
       order: 3;
 
-      margin-top: rem-convert(20px);
-    }
-
-    .btnToggleHidden {
-      margin-top: rem-convert(10px);
-    }
-
-    .btnTrash {
       margin-top: rem-convert(10px);
     }
   }
@@ -269,13 +277,19 @@ footer {
 
   .topBar {
     .sortControls {
-      width: rem-convert(260px);
+      width: 100%;
 
       select {
         font-size: rem-convert(13px);
         line-height: rem-convert(13px);
         padding: rem-convert(10px 7px);
       }
+    }
+
+    .btnTrash,
+    .btnToggleReplant,
+    .btnToggleHidden {
+      width: 31%;
     }
   }
 }

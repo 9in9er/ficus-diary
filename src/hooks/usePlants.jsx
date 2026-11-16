@@ -28,6 +28,7 @@ export function usePlants(user) {
   const [noteTextByPlant, setNoteTextByPlant] = useState({});
 
   const [showOnlyHidden, setShowOnlyHidden] = useState(false);
+  const [showOnlyNeedReplant, setShowOnlyNeedReplant] = useState(false);
 
   const [showTrash, setShowTrash] = useState(false);
 
@@ -349,6 +350,7 @@ export function usePlants(user) {
     if (plant.deletedAt) return false;
     const matchesSearch = (plant.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
+    if (showOnlyNeedReplant && !plant.replanted) return false;
     
     // Фильтр по скрытым растениям
     if (showOnlyHidden) {
@@ -420,6 +422,8 @@ export function usePlants(user) {
     noteTextByPlant,
     showOnlyHidden,
     setShowOnlyHidden,
+    showOnlyNeedReplant,
+    setShowOnlyNeedReplant,
     handleAddPlant,
     handleDeletePlant,
     handleWaterPlant,
