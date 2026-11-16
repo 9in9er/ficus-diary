@@ -1,456 +1,106 @@
 import { useEffect, useState } from 'react';
+import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import {
-  collection,
-  addDoc,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  updateDoc,
-  deleteDoc,
-} from 'firebase/firestore';
+import { DAY_IN_MS, TRASH_RETENTION_DAYS } from '../utils/plantDates';
+
+const CARE_LOG_LIMIT = 8;
 
 export function usePlants(user) {
   const [plants, setPlants] = useState([]);
   const [loadingPlants, setLoadingPlants] = useState(true);
-
-  const [name, setName] = useState('');
-  const [photo, setPhoto] = useState(null);
-  const [acquiredAt, setAcquiredAt] = useState('');
-  const [editingId, setEditingId] = useState(null);
-  const [editPlant, setEditPlant] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortMode, setSortMode] = useState(
-    () => localStorage.getItem('plantsSortMode') || 'date'
-  );
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [noteTextByPlant, setNoteTextByPlant] = useState({});
-
-  const [showOnlyHidden, setShowOnlyHidden] = useState(false);
-  const [showOnlyNeedReplant, setShowOnlyNeedReplant] = useState(false);
-
-  const [showTrash, setShowTrash] = useState(false);
-
+  const [plantsError, setPlantsError] = useState('');
+  const userId = user?.uid;
 
   useEffect(() => {
-    if (!user) {
-      setPlants([]);
+    setPlants([]);
+    setPlantsError('');
+    if (!userId) {
       setLoadingPlants(false);
       return;
     }
-
     setLoadingPlants(true);
-
-    const plantsRef = collection(db, 'plants');
-    const q = query(plantsRef, where('userId', '==', user.uid));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
-      setPlants(data);
+    const plantsQuery = query(collection(db, 'plants'), where('userId', '==', userId));
+    return onSnapshot(plantsQuery, (snapshot) => {
+      setPlants(snapshot.docs.map((item) => ({ ...item.data(), id: item.id })));
+      setLoadingPlants(false);
+    }, () => {
+      setPlantsError('Не удалось загрузить растения. Обновите страницу и попробуйте ещё раз.');
       setLoadingPlants(false);
     });
-
-    return () => unsubscribe();
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     const clearTrash = async () => {
-        for (const plant of plants) {
-            if (!plant.deletedAt) continue;
-            const deleted = new Date(plant.deletedAt);
-            const days =
-                (Date.now() - deleted.getTime()) /
-                (1000 * 60 * 60 * 24);
-            if (days >= 30) {
-                await deleteDoc(doc(db, "plants", plant.id));
-            }
+      for (const plant of plants) {
+        if (!plant.deletedAt) continue;
+        const daysInTrash = (Date.now() - new Date(plant.deletedAt)) / DAY_IN_MS;
+        if (daysInTrash >= TRASH_RETENTION_DAYS) {
+          await deleteDoc(doc(db, 'plants', plant.id));
         }
+      }
     };
-
-    clearTrash();
+    clearTrash().catch(() => {
+      setPlantsError('Не удалось очистить старые записи в корзине. Попробуйте обновить страницу позже.');
+    });
   }, [plants]);
 
-  useEffect(() => {
-    localStorage.setItem('plantsSortMode', sortMode);
-  }, [sortMode]);
+  const updatePlant = (id, changes) => updateDoc(doc(db, 'plants', id), changes);
 
-
-  const resizeImageTo150px = (file, callback) => {
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const MAX_WIDTH = 150;
-        const scale = MAX_WIDTH / img.width;
-        const width = MAX_WIDTH;
-        const height = img.height * scale;
-
-        if (!img.width) return;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        callback(dataUrl);
-      };
-      img.src = e.target.result;
-    };
-
-    reader.readAsDataURL(file);
-  }
-
-  const handleAddPlant = async (e) => {
-    e.preventDefault();
-    if (name.trim() === '' || !user) return;
-
-    const newPlant = {
-      name,
-      photo,
-      acquiredAt,
-      wateringLog: [],
-      fertilizingLog: [],
-      notes: [],
-      userId: user.uid,
+  const createPlant = async (draft) => {
+    if (!draft.name.trim() || !userId) throw new Error('Не заполнены данные растения или аккаунта.');
+    await addDoc(collection(db, 'plants'), {
+      name: draft.name,
+      photo: draft.photo,
+      acquiredAt: draft.acquiredAt,
+      wateringLog: [], fertilizingLog: [], notes: [],
+      userId,
       createdAt: new Date().toISOString(),
-      pinned: false,
-      hidden: false,
-      deletedAt: null,
-    };
-
-    await addDoc(collection(db, 'plants'), newPlant);
-
-    setName('');
-    setPhoto(null);
-    setAcquiredAt('');
-    e.target.reset();
-  };
-
-  const handleDeletePlant = async (id) => {
-    const plantRef = doc(db, "plants", id);
-
-    await updateDoc(plantRef, {
-        deletedAt: new Date().toISOString(),
-        hidden: false,
-        pinned: false,
+      pinned: false, hidden: false, deletedAt: null,
     });
   };
 
-  const restorePlant = async (id) => {
-    const plantRef = doc(db, 'plants', id);
+  const savePlant = (id, draft) => updatePlant(id, {
+    name: draft.name, acquiredAt: draft.acquiredAt, photo: draft.photo,
+  });
 
-    await updateDoc(plantRef, {
-        deletedAt: null,
-    });
+  const appendCareEntry = (id, field, log) => {
+    const entries = Array.isArray(log) ? log : [];
+    return updatePlant(id, { [field]: [...entries, new Date().toISOString()].slice(-CARE_LOG_LIMIT) });
   };
 
-  const permanentlyDeletePlant = async (id) => {
-    await deleteDoc(doc(db, "plants", id));
+  const deleteCareEntry = (id, field, log, entryToDelete) => {
+    const entries = Array.isArray(log) ? log : [];
+    return updatePlant(id, { [field]: entries.filter((entry) => entry !== entryToDelete) });
   };
 
-  const handleWaterPlant = async (id, wateringLog) => {
-    const prevLog = Array.isArray(wateringLog) ? wateringLog : [];
-    const newEntry = new Date().toISOString();
-
-    const extendedLog = [...prevLog, newEntry];
-
-    const limitedLog =
-      extendedLog.length > 8 ?
-        extendedLog.slice(extendedLog.length - 8) :
-        extendedLog;
-
-    const plantRef = doc(db, 'plants', id);
-    await updateDoc(plantRef, {
-      wateringLog: limitedLog
-    });
-  };
-
-  const handleFertilizePlant = async (id, fertilizingLog) => {
-    const prevLog = Array.isArray(fertilizingLog) ? fertilizingLog : [];
-    const newEntry = new Date().toISOString();
-
-    const extendedLog = [...prevLog, newEntry];
-
-    const limitedLog =
-      extendedLog.length > 8 ?
-        extendedLog.slice(extendedLog.length - 8) :
-        extendedLog;
-
-    const plantRef = doc(db, 'plants', id);
-    await updateDoc(plantRef, {
-      fertilizingLog: limitedLog
-    });
-  };
-
-  const deleteWateringEntry = async (id, wateringLog, entryToDelete) => {
-    const prevLog = Array.isArray(wateringLog) ? wateringLog : [];
-
-    const updateLog = prevLog.filter((entry) => entry !== entryToDelete);
-
-    const plantRef = doc(db, 'plants', id);
-    await updateDoc(plantRef, {
-      wateringLog: updateLog,
-    });
-  };
-
-  const deleteFertilizingEntry = async (id, fertilizingLog, entryToDelete) => {
-    const prevLog = Array.isArray(fertilizingLog) ? fertilizingLog : [];
-
-    const updateLog = prevLog.filter((entry) => entry !== entryToDelete);
-
-    const plantRef = doc(db, 'plants', id);
-    await updateDoc(plantRef, {
-      fertilizingLog: updateLog,
-    });
-  };
-
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    resizeImageTo150px(file, setPhoto);
-  };
-
-  const addNoteToPlant = async (plantId, currentNotes, text) => {
+  const addNoteToPlant = async (id, notes, text) => {
     if (!text.trim()) return;
-
-    const newNote = {
-      id: Date.now().toString(),
-      text,
-      createdAt: new Date().toISOString(),
-    };
-
-    const plantRef = doc(db, 'plants', plantId);
-    const updatedNotes = [...(currentNotes || []), newNote];
-
-    await updateDoc(plantRef, {
-      notes: updatedNotes
-    });
+    await updatePlant(id, { notes: [...(notes || []), {
+      id: Date.now().toString(), text, createdAt: new Date().toISOString(),
+    }] });
   };
 
-  const deleteNoteFromPlant = async (plantId, currentNotes, noteId) => {
-    const updatedNotes = (currentNotes || []).filter((note) => note.id !== noteId);
-    const plantRef = doc(db, 'plants', plantId);
-    await updateDoc(plantRef, {
-      notes: updatedNotes
-    });
-  };
-
-  const changeNoteText = (plantId, value) => {
-    setNoteTextByPlant((prev) => ({
-      ...prev,
-      [plantId]: value
-    }));
-  }
-
-  const startEditPlant = (plant) => {
-    setEditingId(plant.id);
-    setEditPlant({
-      name: plant.name,
-      acquiredAt: plant.acquiredAt || '',
-      photo: plant.photo || null,
-    });
-  };
-
-  const handleEditPhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    resizeImageTo150px(file, (dataUrl) =>
-      setEditPlant((prev) => ({
-        ...prev,
-        photo: dataUrl
-      }))
-    );
-  };
-
-  const saveEditPlant = async (id) => {
-    const plantRef = doc(db, 'plants', id);
-    await updateDoc(plantRef, {
-      name: editPlant.name,
-      acquiredAt: editPlant.acquiredAt,
-      photo: editPlant.photo,
-    });
-
-    setEditingId(null);
-    setEditPlant(null);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditPlant(null);
-  };
-
-  const formatDate = (isoString) => {
-    return new Date(isoString).toLocaleDateString('ru-RU');
-  };
-
-  const getDaysUntilDelete = (deletedAt) => {
-    if (!deletedAt) return null;
-
-    const deleted = new Date(deletedAt);
-    const now = new Date();
-
-    const diff =
-        30 -
-        Math.floor(
-            (now - deleted) / (1000 * 60 * 60 * 24)
-        );
-
-    return Math.max(diff, 0);
-  };
-
-  const getDaysSinceLastAction = (log) => {
-    if (!Array.isArray(log) || !log.length) return null;
-
-    const lastDateIso = log[log.length - 1];
-    const last = new Date(lastDateIso);
-    const now = new Date();
-
-    // Сбрасываем время до полуночи, чтобы считать календарные дни, а не 24-часовые отрезки
-    last.setHours(0, 0, 0, 0);
-    now.setHours(0, 0, 0, 0);
-
-    const diffMs = now - last;
-    return Math.round(diffMs / (1000 * 60 * 60 * 24));
-  };
-
-  const getDaysSinceLastWatering = (wateringLog) => getDaysSinceLastAction(wateringLog);
-  const getDaysSinceLastFertilizing = (fertilizingLog) => getDaysSinceLastAction(fertilizingLog);
-  
-
-  const toggleNeedReplant = async (id, currentPlantToReplant) => {
-    const plantRef = doc(db, 'plants', id);
-    await updateDoc(plantRef, {
-      replanted: !currentPlantToReplant,
-    });
-  };
-
-  const togglePinPlant = async (id, currentPinned) => {
-    const plantRef = doc(db, 'plants', id);
-    await updateDoc(plantRef, {
-      pinned: !currentPinned,
-    });
-  };
-
-  const toggleHidePlant = async (id, currentHidden) => {
-    const plantRef = doc(db, 'plants', id);
-    await updateDoc(plantRef, {
-      hidden: !currentHidden,
-    });
-  };
-
-  const filteredPlants = plants.filter((plant) => {
-    if (plant.deletedAt) return false;
-    const matchesSearch = (plant.name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
-    if (showOnlyNeedReplant && !plant.replanted) return false;
-    
-    // Фильтр по скрытым растениям
-    if (showOnlyHidden) {
-      return plant.hidden === true;
-    }
-    
-    // В обычном режиме показываем только не скрытые растения
-    return !plant.hidden;
-  });
-
-  const trashPlants = plants.filter(
-    plant => plant.deletedAt
-  );
-
-  const sortedTrashPlants = [...trashPlants].sort((a, b) => {
-    return new Date(b.deletedAt) - new Date(a.deletedAt);
-  });
-
-  const sortedPlants = [...filteredPlants].sort((a, b) => {
-    const aPinned = !!a.pinned;
-    const bPinned = !!b.pinned;
-
-    if (aPinned !== bPinned) {
-      return aPinned ? -1: 1;
-    }
-
-    if (sortMode === 'name') {
-      return a.name.localeCompare(b.name, 'ru', {
-        sensitivity: 'base'
-      });
-    }
-
-    if (sortMode === 'watering') {
-      const aLog = Array.isArray(a.wateringLog) ? a.wateringLog : [];
-      const bLog = Array.isArray(b.wateringLog) ? b.wateringLog : [];
-
-      const aLast = aLog.length ? aLog[aLog.length - 1] : null;
-      const bLast = bLog.length ? bLog[bLog.length - 1] : null;
-
-      if (!aLast && !bLast) return 0;
-      if (!aLast) return -1;
-      if (!bLast) return 1;
-
-      return aLast.localeCompare(bLast);
-    }
-
-    const aDate = a.createdAt || a.acquiredAt || '';
-    const bDate = b.createdAt || b.acquiredAt || '';
-    return (bDate || '').localeCompare(aDate || '');
-  });
-
-  return {
-    plants,
-    loadingPlants,
-    name,
-    setName,
-    photo,
-    setPhoto,
-    acquiredAt,
-    setAcquiredAt,
-    editingId,
-    editPlant,
-    searchQuery,
-    setSearchQuery,
-    sortMode,
-    setSortMode,
-    isAddModalOpen,
-    setIsAddModalOpen,
-    noteTextByPlant,
-    showOnlyHidden,
-    setShowOnlyHidden,
-    showOnlyNeedReplant,
-    setShowOnlyNeedReplant,
-    handleAddPlant,
-    handleDeletePlant,
-    handleWaterPlant,
-    handleFertilizePlant,
-    deleteWateringEntry,
-    deleteFertilizingEntry,
-    handlePhotoChange,
+  const actions = {
+    createPlant,
+    savePlant,
+    handleDeletePlant: (id) => updatePlant(id, {
+      deletedAt: new Date().toISOString(), hidden: false, pinned: false,
+    }),
+    restorePlant: (id) => updatePlant(id, { deletedAt: null }),
+    permanentlyDeletePlant: (id) => deleteDoc(doc(db, 'plants', id)),
+    handleWaterPlant: (id, log) => appendCareEntry(id, 'wateringLog', log),
+    handleFertilizePlant: (id, log) => appendCareEntry(id, 'fertilizingLog', log),
+    deleteWateringEntry: (id, log, entry) => deleteCareEntry(id, 'wateringLog', log, entry),
+    deleteFertilizingEntry: (id, log, entry) => deleteCareEntry(id, 'fertilizingLog', log, entry),
     addNoteToPlant,
-    deleteNoteFromPlant,
-    changeNoteText,
-    startEditPlant,
-    handleEditPhotoChange,
-    saveEditPlant,
-    cancelEdit,
-    formatDate,
-    getDaysSinceLastWatering,
-    getDaysSinceLastFertilizing,
-    toggleNeedReplant,
-    togglePinPlant,
-    toggleHidePlant,
-    sortedPlants,
-    trashPlants,
-    restorePlant,
-    permanentlyDeletePlant,
-    showTrash,
-    setShowTrash,
-    getDaysUntilDelete,
-    sortedTrashPlants,
+    deleteNoteFromPlant: (id, notes, noteId) => updatePlant(id, {
+      notes: (notes || []).filter((note) => note.id !== noteId),
+    }),
+    // Сохраняем существующее имя поля Firestore для совместимости с данными.
+    toggleNeedReplant: (id, needsReplant) => updatePlant(id, { replanted: !needsReplant }),
+    togglePinPlant: (id, pinned) => updatePlant(id, { pinned: !pinned }),
+    toggleHidePlant: (id, hidden) => updatePlant(id, { hidden: !hidden }),
   };
+
+  return { plants, loadingPlants, plantsError, actions };
 }

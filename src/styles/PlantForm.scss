@@ -1,17 +1,16 @@
-@import "sass-rem";
-@import './Base.scss';
+@use 'sass-rem' as rem;
 
 
 .mainForm {
   .mainForm_wrap {
     display: flex;
     flex-wrap: wrap;
-    gap: rem-convert(10px);
+    gap: rem.convert(10px);
 
     .nameAndDate {
       display: flex;
       flex-wrap: wrap;
-      gap: rem-convert(10px);
+      gap: rem.convert(10px);
 
       .dateLabel,
       .nameLabel {
@@ -24,5 +23,5 @@
 
 .inputPlantName,
 .plantDate {
-  padding: rem-convert(10px);
+  padding: rem.convert(10px);
 }

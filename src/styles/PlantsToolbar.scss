@@ -1,0 +1,227 @@
+@use 'sass-rem' as rem;
+
+.plantsToolbar {
+  --toolbar-border: #ddd;
+  --toolbar-muted: #666;
+  --toolbar-selected: #ededed;
+  --toolbar-radius: #{rem.convert(10px)};
+  --toolbar-control-height: #{rem.convert(42px)};
+  padding: rem.convert(12px);
+  border: 1px solid var(--toolbar-border);
+  border-radius: var(--toolbar-radius);
+  background: #fff;
+  color: #222;
+  font-family: Arial, sans-serif;
+
+  &, * { box-sizing: border-box; }
+
+  .plantsToolbarHeader,
+  .plantsToolbarActions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: rem.convert(8px);
+  }
+
+  header { min-width: 0; }
+
+  header .appTitle {
+    margin: 0;
+    gap: rem.convert(8px);
+    font-size: rem.convert(28px);
+    line-height: rem.convert(36px);
+    white-space: nowrap;
+
+    .titlePic {
+      width: rem.convert(36px);
+      height: rem.convert(36px);
+      object-fit: contain;
+      margin: 0;
+    }
+  }
+
+  .plantCount {
+    font-size: rem.convert(14px);
+    font-weight: 400;
+  }
+
+  .plantsToolbarActions { flex-shrink: 0; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: rem.convert(6px);
+    min-width: 0;
+    min-height: rem.convert(32px);
+    padding: rem.convert(6px 14px);
+    border: 1px solid var(--toolbar-border);
+    border-radius: var(--toolbar-radius);
+    background: transparent;
+    color: var(--toolbar-muted);
+    font: 600 #{rem.convert(14px)}/1.2 Arial, sans-serif;
+    white-space: nowrap;
+    text-decoration: none;
+
+    &:hover { background: var(--toolbar-selected); opacity: 1; transform: none; }
+  }
+
+  svg,
+  .filterIcon { width: rem.convert(18px); height: rem.convert(18px); flex-shrink: 0; }
+
+  .btn.btnAddPlant {
+    border-color: #008c38;
+    background: #008c38;
+    color: #fff;
+    padding-inline: rem.convert(16px);
+    &:hover { background: #00a344; }
+  }
+
+  .btnAccount { width: rem.convert(50px); padding-inline: 0; }
+
+  .plantsToolbarControls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) rem.convert(280px) auto;
+    align-items: center;
+    gap: rem.convert(8px);
+    margin-top: rem.convert(12px);
+  }
+
+  .searchGroup { position: relative; min-width: 0; }
+
+  .searchInput,
+  .sortControls select {
+    width: 100%;
+    height: var(--toolbar-control-height);
+    padding: rem.convert(8px 14px);
+    border: 1px solid var(--toolbar-border);
+    border-radius: var(--toolbar-radius);
+    background: transparent;
+    color: #333;
+    font: 400 #{rem.convert(14px)}/1.2 Arial, sans-serif;
+    &::placeholder { color: var(--toolbar-muted); opacity: 1; }
+  }
+
+  .searchInput {
+    padding-right: rem.convert(36px);
+    &::-webkit-search-cancel-button { appearance: none; }
+  }
+
+  .btn.clearSearch {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: rem.convert(4px);
+    width: rem.convert(30px);
+    padding: 0;
+    border: 0;
+    font-size: rem.convert(24px);
+    font-weight: 400;
+  }
+
+  .sortControls {
+    position: relative;
+    min-width: 0;
+    select {
+      appearance: none;
+      padding-right: rem.convert(34px);
+      cursor: pointer;
+      option { background: #fff; color: #333; }
+    }
+    > svg {
+      position: absolute;
+      top: 50%;
+      right: rem.convert(12px);
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--toolbar-muted);
+      width: rem.convert(16px);
+    }
+  }
+
+  .gridControls {
+    display: flex;
+    height: var(--toolbar-control-height);
+    gap: rem.convert(4px);
+    padding: rem.convert(4px);
+    border: 1px solid var(--toolbar-border);
+    border-radius: var(--toolbar-radius);
+  }
+
+  .btn.btnGridColumns {
+    width: rem.convert(30px);
+    height: rem.convert(32px);
+    padding: rem.convert(6px);
+    border: 0;
+    border-radius: var(--toolbar-radius);
+    &.btnGridColumns--active { background: var(--toolbar-selected); color: #333; }
+  }
+
+  .gridControls--mobile { display: none; }
+
+  .plantsToolbarFilters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: rem.convert(8px);
+    margin-top: rem.convert(12px);
+  }
+
+  .btn.filterChip--active {
+    background: #ededed;
+    border-color: #bdbdbd;
+    color: #171717;
+    &:hover { background: #e4e4e4; }
+  }
+
+  .mobileLabel { display: none; }
+
+  :is(button, a, input, select):focus-visible { outline: 2px solid #009432; outline-offset: 3px; }
+}
+
+@media (min-width: 481px) and (max-width: 700px) {
+  .plantsToolbar .plantsToolbarControls { grid-template-columns: minmax(0, 1fr) auto; }
+  .plantsToolbar .searchGroup { grid-column: 1 / -1; }
+}
+
+@media (max-width: 480px) {
+  .plantsToolbar {
+    padding: rem.convert(12px);
+
+    .plantsToolbarHeader { flex-wrap: wrap; }
+    .plantsToolbarActions { margin-left: auto; }
+
+    header .appTitle {
+      gap: rem.convert(6px);
+      font-size: rem.convert(22px);
+      line-height: rem.convert(28px);
+      .titlePic { width: rem.convert(24px); height: rem.convert(28px); }
+    }
+
+    .plantCount { font-size: rem.convert(12px); }
+    .plantCountLabel { display: none; }
+    .btnAccount { width: rem.convert(32px); height: rem.convert(32px); }
+    .btn.btnAddPlant { padding-inline: rem.convert(12px); }
+
+    .plantsToolbarControls {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: rem.convert(12px 8px);
+    }
+
+    .searchGroup { grid-column: 1 / -1; }
+    .gridControls--desktop { display: none; }
+    .gridControls--mobile { display: flex; }
+
+    .plantsToolbarFilters {
+      margin-top: rem.convert(20px);
+      padding-top: rem.convert(20px);
+      border-top: 1px solid var(--toolbar-border);
+      gap: rem.convert(4px 6px);
+    }
+
+    .btn.filterChip { min-height: rem.convert(28px); padding: rem.convert(4px 10px); gap: rem.convert(4px); }
+    .trashFilter { flex-basis: 100%; }
+    .filterChip .filterIcon { width: rem.convert(15px); height: rem.convert(15px); }
+    .desktopLabel { display: none; }
+    .mobileLabel { display: inline; }
+  }
+}

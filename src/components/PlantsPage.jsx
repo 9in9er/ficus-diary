@@ -1,30 +1,33 @@
 import { useEffect, useState } from 'react';
 import { usePlants } from '../hooks/usePlants';
 import { useAuth } from '../hooks/useAuth';
+import usePlantDraft from '../hooks/usePlantDraft';
+import usePlantEditor from '../hooks/usePlantEditor';
+import usePlantFilters from '../hooks/usePlantFilters';
+import usePlantGridLayout from '../hooks/usePlantGridLayout';
 import PlantForm from './PlantForm';
 import PlantCard from './PlantCard';
 import ScrollToTop from './ScrollToTop';
 import Footer from './Footer';
-import Header from './Header';
-
-import iconEmojiUnlocked from '../i/icons/unlock.svg';
-import iconEmojiLocked from '../i/icons/lock.svg';
-import iconEmojiWastebasket from '../i/icons/trash.svg';
-import iconEmojiHerb from '../i/icons/sprout.svg';
-import iconEmojiShovel from '../i/icons/shovel.svg';
-import { ReactComponent as GridThreeIcon } from '../i/icons/grid-3-columns.svg';
-import { ReactComponent as GridFourIcon } from '../i/icons/grid-4-columns.svg';
-import { ReactComponent as GridEightIcon } from '../i/icons/grid-8-columns.svg';
-import { ReactComponent as GridOneIcon } from '../i/icons/grid-1-column.svg';
-import { ReactComponent as GridTwoIcon } from '../i/icons/grid-2-columns.svg';
+import PlantsToolbar from './PlantsToolbar';
 
 function PlantsPage() {
-    const auth = useAuth();
+    const { user } = useAuth();
+    const { plants, loadingPlants, plantsError, actions } = usePlants(user);
+    const filters = usePlantFilters(plants);
+    const { showTrash, showOnlyNeedReplant, sortedPlants, sortedTrashPlants } = filters;
+    const addForm = usePlantDraft();
+    const editor = usePlantEditor();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isAddingPlant, setIsAddingPlant] = useState(false);
+    const [addPlantError, setAddPlantError] = useState('');
+    const [noteTextByPlant, setNoteTextByPlant] = useState({});
+    const { regularColumns, compactColumns } = usePlantGridLayout();
     const [gridColumns, setGridColumns] = useState(
         () => {
             const savedColumns = Number(localStorage.getItem('plantsGridColumns'));
-            if (savedColumns === 5 || savedColumns === 6) return 8;
-            return [3, 4, 8].includes(savedColumns) ? savedColumns : 4;
+            if ([5, 6, 7].includes(savedColumns)) return 8;
+            return [2, 3, 4, 8].includes(savedColumns) ? savedColumns : 4;
         }
     );
     const [mobileCompact, setMobileCompact] = useState(
@@ -39,302 +42,108 @@ function PlantsPage() {
         localStorage.setItem('plantsMobileCompact', String(mobileCompact));
     }, [mobileCompact]);
     
-    const {
-        plants,
-        loadingPlants,
-        name,
-        setName,
-        acquiredAt,
-        setAcquiredAt,
-        searchQuery,
-        setSearchQuery,
-        sortMode,
-        setSortMode,
-        isAddModalOpen,
-        setIsAddModalOpen,
-        noteTextByPlant,
-        editingId,
-        editPlant,
-        handleAddPlant,
-        handleDeletePlant,
-        handleWaterPlant,
-        handleFertilizePlant,
-        deleteWateringEntry,
-        deleteFertilizingEntry,
-        handlePhotoChange,
-        addNoteToPlant,
-        deleteNoteFromPlant,
-        changeNoteText,
-        startEditPlant,
-        handleEditPhotoChange,
-        saveEditPlant,
-        cancelEdit,
-        formatDate,
-        getDaysSinceLastWatering,
-        getDaysSinceLastFertilizing,
-        toggleNeedReplant,
-        togglePinPlant,
-        toggleHidePlant,
-        showOnlyHidden,
-        setShowOnlyHidden,
-        showOnlyNeedReplant,
-        setShowOnlyNeedReplant,
-        sortedPlants,
-        trashPlants,
-        restorePlant,
-        permanentlyDeletePlant,
-        showTrash,
-        setShowTrash,
-        getDaysUntilDelete,
-        sortedTrashPlants
-    } = usePlants(auth.user);
+    // Preserve the preferred mode while adapting its column count to the viewport.
+    const visibleGridColumns = gridColumns === 8
+        ? (compactColumns || 4)
+        : Math.min(Math.max(gridColumns, regularColumns[0]), regularColumns[regularColumns.length - 1]);
+    const plantListClassName = `plantListWrap plantListWrap--columns-${visibleGridColumns} ${mobileCompact ? 'plantListWrap--mobile-compact' : ''}`;
 
-    const plantListClassName = `plantListWrap plantListWrap--columns-${gridColumns} ${mobileCompact ? 'plantListWrap--mobile-compact' : ''}`;
+    const submitNewPlant = async (event) => {
+        event.preventDefault();
+        if (isAddingPlant || addForm.isProcessingPhoto) return;
+        if (!addForm.draft.name.trim()) {
+            setAddPlantError('Введите название растения.');
+            return;
+        }
+        setAddPlantError('');
+        setIsAddingPlant(true);
+        try {
+            await actions.createPlant(addForm.draft);
+            addForm.resetDraft();
+            setIsAddModalOpen(false);
+        } catch {
+            setAddPlantError('Не удалось сохранить растение. Попробуйте ещё раз.');
+        } finally {
+            setIsAddingPlant(false);
+        }
+    };
+
+    const closeAddModal = () => {
+        if (isAddingPlant) return;
+        setIsAddModalOpen(false);
+        setAddPlantError('');
+    };
     
+
+    const visiblePlants = showTrash ? sortedTrashPlants : sortedPlants;
+
     return (
         <>
-            <div className='mainBlock'>
-                <Header 
-                    showCount={true}
-                    count={showTrash ? sortedTrashPlants.length : sortedPlants.length}
+            <div className='mainBlock plantsPage'>
+                <PlantsToolbar
+                    count={visiblePlants.length}
+                    trashCount={sortedTrashPlants.length}
+                    onAdd={() => { setAddPlantError(''); setIsAddModalOpen(true); }}
+                    searchQuery={filters.searchQuery}
+                    setSearchQuery={filters.setSearchQuery}
+                    sortMode={filters.sortMode}
+                    setSortMode={filters.setSortMode}
+                    showOnlyHidden={filters.showOnlyHidden}
+                    setShowOnlyHidden={filters.setShowOnlyHidden}
+                    showOnlyNeedReplant={showOnlyNeedReplant}
+                    setShowOnlyNeedReplant={filters.setShowOnlyNeedReplant}
+                    showTrash={showTrash}
+                    setShowTrash={filters.setShowTrash}
+                    gridColumns={visibleGridColumns >= 5 ? 8 : visibleGridColumns}
+                    compactColumns={compactColumns}
+                    regularColumns={regularColumns}
+                    setGridColumns={setGridColumns}
+                    mobileCompact={mobileCompact}
+                    setMobileCompact={setMobileCompact}
                 />
 
-                <button className='btn btnLogOut' onClick={auth.handleLogout}>
-                    Выйти
-                </button>
-
                 {isAddModalOpen && (
-                    <div className='modalOverlay' onClick={() => setIsAddModalOpen(false)}>
-                    <div className='modal' onClick={(e) => e.stopPropagation()}>
-                        <h2>Добавить растение</h2>
-
-                        <PlantForm
-                        name={name}
-                        acquiredAt={acquiredAt}
-                        onNameChange={setName}
-                        onDateChange={setAcquiredAt}
-                        onPhotoChange={handlePhotoChange}
-                        onSubmit={(e) => {
-                            handleAddPlant(e);
-                            setIsAddModalOpen(false);
-                        }}
-                        onCancel={() => setIsAddModalOpen(false)}
-                        />
-                    </div>
+                    <div className='modalOverlay' onClick={closeAddModal}>
+                        <div className='modal' onClick={(event) => event.stopPropagation()}>
+                            <h2>Добавить растение</h2>
+                            <PlantForm
+                                name={addForm.draft.name}
+                                acquiredAt={addForm.draft.acquiredAt}
+                                onNameChange={(value) => addForm.setField('name', value)}
+                                onDateChange={(value) => addForm.setField('acquiredAt', value)}
+                                onPhotoChange={addForm.handlePhotoChange}
+                                onSubmit={submitNewPlant}
+                                onCancel={closeAddModal}
+                                isSubmitting={isAddingPlant}
+                                isProcessingPhoto={addForm.isProcessingPhoto}
+                                error={addPlantError || addForm.photoError}
+                            />
+                        </div>
                     </div>
                 )}
 
-                {loadingPlants && (
-                    <p className='startMessage'>Загружаем ваши растения…</p>
-                )}
+                {loadingPlants && <p className='startMessage'>Загружаем ваши растения…</p>}
+                {plantsError && <p className='formError' role='alert'>{plantsError}</p>}
 
-                <div className='topBar'>
-                    <button
-                    className='btn btnSubmit'
-                    type='button'
-                    onClick={() => setIsAddModalOpen(true)}
-                    >
-                    Добавить растение
-                    </button>
-
-                    <div className='gridControls gridControls--mobile' role='group' aria-label='Вид карточек на телефоне'>
-                        {[
-                            { compact: false, Icon: GridOneIcon, name: 'Обычные', label: 'Обычный вид: 1 карточка в ряду' },
-                            { compact: true, Icon: GridTwoIcon, name: 'Компактные', label: 'Компактный вид: 2 карточки в ряду' },
-                        ].map(({ compact, Icon, name, label }) => (
-                            <button
-                                key={name}
-                                type='button'
-                                className={`btn btnGridColumns ${mobileCompact === compact ? 'btnGridColumns--active' : ''}`}
-                                aria-pressed={mobileCompact === compact}
-                                aria-label={label}
-                                title={label}
-                                onClick={() => setMobileCompact(compact)}
-                            >
-                                <Icon aria-hidden='true' focusable='false' preserveAspectRatio='none' />
-                                <span className='gridControlsLabel'>{name}</span>
-                            </button>
-                        ))}
-                    </div>
-                    
-                    <div className="searchGroup">
-                    <input
-                        className='searchInput'
-                        type='text'
-                        placeholder='Поиск по названию'
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button
-                        type='button'
-                        className='btn clearSearch'
-                        onClick={() => setSearchQuery('')}
-                        aria-label='Очистить поиск'
-                        >
-                        ×
-                        </button>
+                <div className={plantListClassName} role='list' aria-label='Растения'>
+                    {!loadingPlants && showTrash && visiblePlants.length === 0 && <p>Корзина пуста.</p>}
+                    {!loadingPlants && !showTrash && showOnlyNeedReplant && visiblePlants.length === 0 && (
+                        <p className='startMessage'>Нет растений для пересадки с учётом выбранных фильтров.</p>
                     )}
-                    </div>
-
-                    <div className='sortControls'>
-                    <label>
-                        Сортировать по:{' '}
-                        <select
-                        value={sortMode}
-                        onChange={(e) => setSortMode(e.target.value)}
-                        >
-                        <option value='date'>дата добавления (новые → старые)</option>
-                        <option value='name'>имя (А → Я)</option>
-                        <option value='watering'>последний полив (давно → недавно)</option>
-                        </select>
-                    </label>
-                    </div>
-
-                    <button
-                        className={`btn btnToggleHidden ${showOnlyHidden ? 'btnToggleHidden--active' : ''}`}
-                        onClick={() => setShowOnlyHidden(!showOnlyHidden)}
-                        title={showOnlyHidden ? 'Показать все растения' : 'Показать скрытые растения'}
-                    >
-                        {showOnlyHidden ? (
-                            <>
-                                <span><img src={iconEmojiUnlocked} alt='iconEmojiUnlocked' /></span> Все
-                            </>) : (
-                            <>
-                                <span><img src={iconEmojiLocked} alt='iconEmojiLocked' /></span> Скрытые
-                            </>)}
-                    </button>
-
-                    <button
-                        type='button'
-                        className={`btn btnToggleReplant ${showOnlyNeedReplant ? 'btnToggleReplant--active' : ''}`}
-                        onClick={() => {
-                            setShowOnlyNeedReplant((current) => !current);
-                            setShowTrash(false);
-                        }}
-                        aria-pressed={showOnlyNeedReplant}
-                        title={showOnlyNeedReplant ? 'Снять фильтр по пересадке' : 'Показать растения, нуждающиеся в пересадке'}
-                    >
-                        <span><img src={iconEmojiShovel} alt='' /></span> На пересадку
-                    </button>
-
-                    <button
-                        className={`btn btnTrash ${showTrash ? 'btnTrash--active' : ''}`}
-                        onClick={() => setShowTrash(!showTrash)}
-                    >
-                        {showTrash ? (
-                            <>
-                                <span><img src={iconEmojiHerb} alt='iconEmojiHerb' /></span> Растения
-                            </>
-                        ) : (
-                            <>
-                                <span><img src={iconEmojiWastebasket} alt='iconEmojiWastebasket' /></span> Корзина ({trashPlants.length})
-                            </>
-                        )}
-                    </button>
-
-                </div>
-
-                <div className='gridControls gridControls--desktop' role='group' aria-label='Вид карточек'>
-                    {[
-                        { columns: 3, Icon: GridThreeIcon, name: 'Крупные', label: 'Крупные: 3 карточки в ряду' },
-                        { columns: 4, Icon: GridFourIcon, name: 'Средние', label: 'Средние: 4 карточки в ряду' },
-                        { columns: 8, Icon: GridEightIcon, name: 'Компактные', label: 'Компактные: 8 карточек в ряду' },
-                    ].map(({ columns, Icon, name, label }) => (
-                        <button
-                            key={columns}
-                            type='button'
-                            className={`btn btnGridColumns ${gridColumns === columns ? 'btnGridColumns--active' : ''}`}
-                            aria-pressed={gridColumns === columns}
-                            aria-label={label}
-                            title={label}
-                            onClick={() => setGridColumns(columns)}
-                        >
-                            <Icon aria-hidden='true' focusable='false' preserveAspectRatio='none' />
-                            <span className='gridControlsLabel'>{name}</span>
-                        </button>
-                    ))}
-                </div>
-
-                {!showTrash && (
-                    <div className={plantListClassName}>
-                        {!loadingPlants && showOnlyNeedReplant && sortedPlants.length === 0 && (
-                            <p className='startMessage'>Нет растений для пересадки с учётом выбранных фильтров.</p>
-                        )}
-                        {sortedPlants.map((plant) => (
+                    {visiblePlants.map((plant) => (
                         <PlantCard
                             key={plant.id}
                             plant={plant}
-                            editingId={editingId}
-                            editPlant={editPlant}
-                            startEditPlant={startEditPlant}
-                            saveEditPlant={saveEditPlant}
-                            cancelEdit={cancelEdit}
-                            handleWaterPlant={handleWaterPlant}
-                            handleFertilizePlant={handleFertilizePlant}
-                            deleteWateringEntry={deleteWateringEntry}
-                            deleteFertilizingEntry={deleteFertilizingEntry}
-                            handleEditPhotoChange={handleEditPhotoChange}
-                            handleDeletePlant={handleDeletePlant}
-                            formatDate={formatDate}
-                            getDaysSinceLastWatering={getDaysSinceLastWatering}
-                            getDaysSinceLastFertilizing={getDaysSinceLastFertilizing}
-                            toggleNeedReplant={toggleNeedReplant}
-                            togglePinPlant={togglePinPlant}
-                            toggleHidePlant={toggleHidePlant}
-                            addNoteToPlant={addNoteToPlant}
-                            deleteNoteFromPlant={deleteNoteFromPlant}
+                            actions={actions}
+                            editor={editor}
                             noteText={noteTextByPlant[plant.id] || ''}
-                            changeNoteText={changeNoteText}
-                            showOnlyHidden={showOnlyHidden}
-                            isTrash={false}
+                            onNoteTextChange={(value) => setNoteTextByPlant((previous) => ({ ...previous, [plant.id]: value }))}
+                            isTrash={showTrash}
                         />
-                        ))}
-                    </div>
-                )}
+                    ))}
+                </div>
 
-                {showTrash && (
-                    <div className={plantListClassName}>
-                        {sortedTrashPlants.length === 0 ? (
-                            <p>Корзина пуста.</p>
-                        ) : (
-                            sortedTrashPlants.map((plant) => (
-                                <PlantCard
-                                    key={plant.id}
-                                    plant={plant}
-                                    editingId={editingId}
-                                    editPlant={editPlant}
-                                    startEditPlant={startEditPlant}
-                                    saveEditPlant={saveEditPlant}
-                                    cancelEdit={cancelEdit}
-                                    handleWaterPlant={handleWaterPlant}
-                                    handleFertilizePlant={handleFertilizePlant}
-                                    deleteWateringEntry={deleteWateringEntry}
-                                    deleteFertilizingEntry={deleteFertilizingEntry}
-                                    handleEditPhotoChange={handleEditPhotoChange}
-                                    handleDeletePlant={handleDeletePlant}
-                                    toggleNeedReplant={toggleNeedReplant}
-                                    togglePinPlant={togglePinPlant}
-                                    toggleHidePlant={toggleHidePlant}
-                                    addNoteToPlant={addNoteToPlant}
-                                    deleteNoteFromPlant={deleteNoteFromPlant}
-                                    noteText={noteTextByPlant[plant.id] || ""}
-                                    changeNoteText={changeNoteText}
-                                    formatDate={formatDate}
-                                    getDaysSinceLastWatering={getDaysSinceLastWatering}
-                                    getDaysSinceLastFertilizing ={getDaysSinceLastFertilizing}
-                                    showOnlyHidden={showOnlyHidden}
-                                    isTrash={true}
-                                    restorePlant={restorePlant}
-                                    permanentlyDeletePlant={permanentlyDeletePlant}
-                                    getDaysUntilDelete={getDaysUntilDelete}
-                                />
-                            ))
-                        )}
-                    </div>
-                )}
-
-                {!loadingPlants && plants.length === 0 && (
+                {!loadingPlants && !plantsError && plants.length === 0 && (
                     <p className='startMessage'>Добавьте первое растение!</p>
                 )}
             </div>
