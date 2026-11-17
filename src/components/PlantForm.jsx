@@ -43,6 +43,7 @@ function PlantForm({
           className='fileLoad'
           type='file'
           accept='image/*'
+          aria-label='Фотография растения'
           onChange={onPhotoChange}
           disabled={isSubmitting}
         />

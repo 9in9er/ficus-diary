@@ -6,7 +6,7 @@ export default function PlantCareHistory({ plantId, log, title, emptyMessage, cl
 
   return (
     <div className={className}>
-      {log.length > 0 && !isTrash ? (
+      {log.length > 0 ? (
         <details>
           <summary>
             {label}
@@ -16,7 +16,9 @@ export default function PlantCareHistory({ plantId, log, title, emptyMessage, cl
             {[...log].reverse().map((date) => (
               <li key={date}>
                 {formatDate(date)}
-                <button className='btn btnDelete' type='button' aria-label={`Удалить запись: ${title.toLowerCase()}, ${formatDate(date)}`} onClick={() => onDelete(plantId, log, date)}>✖</button>
+                {!isTrash && (
+                  <button className='btn btnDelete' type='button' aria-label={`Удалить запись: ${title.toLowerCase()}, ${formatDate(date)}`} onClick={() => onDelete(plantId, log, date)}>✖</button>
+                )}
               </li>
             ))}
           </ul>

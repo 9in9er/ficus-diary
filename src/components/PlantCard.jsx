@@ -203,7 +203,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                         <ul className='notesList'>
                           {latestNotes.map(renderNoteItem)}
                         </ul>
-                        {(olderNotes.length > 0 && !isTrash) && (
+                        {olderNotes.length > 0 && (
                           <details className='notesMore'>
                             <summary>
                               Показать все заметки ({sortedNotes.length - 3})

@@ -1,6 +1,7 @@
 import '../styles/AuthScreen.scss';
 
-import Header from '../components/Header';
+import Header from './Header';
+import PasswordResetDialog from './PasswordResetDialog';
 
 import useAuthForm from '../hooks/useAuthForm';
 
@@ -15,89 +16,78 @@ function AuthScreen() {
     authError,
     handleLogin,
     handleRegister,
+    isAuthenticating,
     showResetModal,
-    setShowResetModal,
+    openResetModal,
+    closeResetModal,
     resetEmail,
     setResetEmail,
     handlePasswordReset,
     resetFeedback,
+    isResetting,
   } = useAuthForm();
 
   const isLogin = authMode === 'login';
 
   return (
     <div className='mainBlock'>
-      <Header 
-        showCount={false}
-      />
+      <Header showCount={false} />
 
       <div className="authScreen">
         {showResetModal && (
-          <div className='modalOverlay' onClick={() => setShowResetModal(false)}>
-            <div className='modal resetModal' onClick={(e) => e.stopPropagation()}>
-              <h2>Сброс пароля</h2>
-              <p>Введите email - отправим ссылку для сброса</p>
-              <input
-                type="email"
-                className="inputLogin"
-                placeholder="Email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                required
-              />
-
-              {resetFeedback && (
-                <div className={`resetMessage ${resetFeedback.status}`}>
-                  {resetFeedback.message}
-                </div>
-              )}
-
-              <div className='modalButtons'>
-                <button 
-                  type="button" 
-                  className="btn btnSubmit"
-                  onClick={() => handlePasswordReset(resetEmail)}
-                >
-                  Отправить ссылку
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btnCancel"
-                  onClick={() => setShowResetModal(false)}
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          </div>
+          <PasswordResetDialog
+            email={resetEmail}
+            onEmailChange={setResetEmail}
+            onSubmit={handlePasswordReset}
+            onClose={closeResetModal}
+            feedback={resetFeedback}
+            isSubmitting={isResetting}
+          />
         )}
-        <form className="authForm" onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
-          <h1 className="appTitle">
+        <form className='authForm' onSubmit={isLogin ? handleLogin : handleRegister} aria-labelledby='authFormTitle' aria-busy={isAuthenticating}>
+          <h1 className='appTitle' id='authFormTitle'>
             {isLogin ? 'Вход в аккаунт' : 'Регистрация'}
           </h1>
 
-          <input
-            type="email"
-            className="inputLogin"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <label className='authField' htmlFor='authEmail'>
+            Email
+            <input
+              id='authEmail'
+              name='email'
+              type='email'
+              className='inputLogin'
+              placeholder='Email'
+              autoComplete='username'
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isAuthenticating}
+              required
+            />
+          </label>
 
-          <input
-            type="password"
-            className="inputPass"
-            placeholder="Пароль"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <label className='authField' htmlFor='authPassword'>
+            Пароль
+            <input
+              id='authPassword'
+              name='password'
+              type='password'
+              className='inputPass'
+              placeholder='Пароль'
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
+              minLength={isLogin ? undefined : 6}
+              aria-describedby={isLogin ? undefined : 'authPasswordHint'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isAuthenticating}
+              required
+            />
+          </label>
+          {!isLogin && <small id='authPasswordHint'>Не менее 6 символов.</small>}
 
-          {authError && <div className="authError">{authError}</div>}
+          {authError && <div className='authError' role='alert'>{authError}</div>}
 
-          <button type="submit" className="btn btnSubmit">
-            {isLogin ? 'Войти' : 'Зарегистрироваться'}
+          <button type='submit' className='btn btnSubmit' disabled={isAuthenticating}>
+            {isAuthenticating ? (isLogin ? 'Входим…' : 'Регистрируем…') : (isLogin ? 'Войти' : 'Зарегистрироваться')}
           </button>
 
           <div className="authToggle">
@@ -108,6 +98,7 @@ function AuthScreen() {
                   type="button"
                   className="btn btnToggle"
                   onClick={() => setAuthMode('register')}
+                  disabled={isAuthenticating}
                 >
                   Зарегистрироваться
                 </button>
@@ -119,6 +110,7 @@ function AuthScreen() {
                   type="button"
                   className="btn btnToggle"
                   onClick={() => setAuthMode('login')}
+                  disabled={isAuthenticating}
                 >
                   Войти
                 </button>
@@ -127,11 +119,13 @@ function AuthScreen() {
           </div>
         </form>
 
-        {authMode === 'login' && (
+        {isLogin && (
           <div className='forgotPassword'>
             <button 
               className='forgotPasswordLink'
-              onClick={() => setShowResetModal(true)}
+              type='button'
+              onClick={openResetModal}
+              disabled={isAuthenticating}
             >Забыли пароль?</button>
           </div>
         )}

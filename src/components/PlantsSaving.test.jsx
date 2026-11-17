@@ -63,6 +63,8 @@ test('keeps the add form open and prevents repeated saves while Firestore is pen
   expect(screen.getByLabelText('Название растения')).toHaveValue('Монстера');
   fireEvent.submit(form);
   expect(addDoc).toHaveBeenCalledTimes(1);
+  fireEvent(screen.getByRole('dialog', { name: 'Добавить растение' }), new Event('cancel', { cancelable: true }));
+  expect(screen.getByRole('dialog', { name: 'Добавить растение' })).toBeInTheDocument();
   await act(async () => finishSave({ id: 'plant-2' }));
   expect(screen.queryByRole('form', { name: 'Данные растения' })).not.toBeInTheDocument();
 });
@@ -130,4 +132,71 @@ test('ends loading and reports a Firestore subscription error', () => {
   renderPage();
   expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить растения');
   expect(screen.queryByText('Загружаем ваши растения…')).not.toBeInTheDocument();
+});
+
+test('focuses the add form, closes on Escape and restores the trigger focus', () => {
+  renderPage();
+  const trigger = screen.getByRole('button', { name: 'Добавить растение' });
+  trigger.focus();
+  fireEvent.click(trigger);
+  expect(screen.getByLabelText('Название растения')).toHaveFocus();
+  fireEvent(screen.getByRole('dialog', { name: 'Добавить растение' }), new Event('cancel', { cancelable: true }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+});
+
+test('keeps the add dialog and its draft when file selection is cancelled', () => {
+  renderPage();
+  openAddForm();
+  fireEvent(screen.getByLabelText('Фотография растения'), new Event('cancel', { bubbles: true }));
+  expect(screen.getByRole('dialog', { name: 'Добавить растение' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Название растения')).toHaveValue('Монстера');
+  expect(addDoc).not.toHaveBeenCalled();
+});
+
+test('explains an empty search and clears the message when search is reset', () => {
+  renderPage();
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Монстера' } });
+  expect(screen.getByRole('status')).toHaveTextContent('По вашему запросу растения не найдены');
+  expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Фикус' })).toBeInTheDocument();
+});
+
+test('shows the first-plant message only once for an empty collection', () => {
+  onSnapshot.mockImplementationOnce((query, onSuccess) => {
+    onSuccess({ docs: [] });
+    return jest.fn();
+  });
+  renderPage();
+  expect(screen.getAllByText('Добавьте первое растение!')).toHaveLength(1);
+  expect(screen.getByRole('status')).toHaveTextContent('Добавьте первое растение!');
+});
+
+test('shows care history and all notes in trash without exposing edit controls', () => {
+  const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
+  onSnapshot.mockImplementationOnce((query, onSuccess) => {
+    onSuccess({ docs: [{ id: 'deleted-plant', data: () => ({
+      name: 'Удалённый фикус',
+      deletedAt: daysAgo(1),
+      wateringLog: [daysAgo(3)],
+      fertilizingLog: [daysAgo(7)],
+      notes: Array.from({ length: 5 }, (_, index) => ({ id: String(index), text: `Заметка ${index + 1}`, createdAt: daysAgo(index + 1) })),
+    }) }] });
+    return jest.fn();
+  });
+  renderPage();
+  fireEvent.click(screen.getByRole('button', { name: 'Корзина · 1' }));
+  expect(screen.getByText('3 дн. назад')).toBeVisible();
+  expect(screen.getByText('7 дн. назад')).toBeVisible();
+  expect(screen.queryByText('ещё не поливали')).not.toBeInTheDocument();
+  expect(screen.queryByText('ещё не удобряли')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Удалить запись:/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '✖' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox', { name: 'Новая заметка' })).not.toBeInTheDocument();
+  expect(screen.getByText('Заметка 5')).not.toBeVisible();
+  fireEvent.click(screen.getByText('Показать все заметки (2)'));
+  expect(screen.getByText('Заметка 4')).toBeVisible();
+  expect(screen.getByText('Заметка 5')).toBeVisible();
 });
