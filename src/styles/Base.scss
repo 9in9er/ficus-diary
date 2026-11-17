@@ -82,6 +82,7 @@ input {
 
 .formError {
   color: $redPigmentColor;
+  overflow-wrap: anywhere;
 }
 
 .btn {

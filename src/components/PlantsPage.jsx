@@ -5,6 +5,7 @@ import usePlantDraft from '../hooks/usePlantDraft';
 import usePlantEditor from '../hooks/usePlantEditor';
 import usePlantFilters from '../hooks/usePlantFilters';
 import usePlantGridLayout from '../hooks/usePlantGridLayout';
+import usePlantActions from '../hooks/usePlantActions';
 import PlantForm from './PlantForm';
 import PlantCard from './PlantCard';
 import ScrollToTop from './ScrollToTop';
@@ -15,6 +16,7 @@ import ModalDialog from './ModalDialog';
 function PlantsPage() {
     const { user } = useAuth();
     const { plants, loadingPlants, plantsError, actions } = usePlants(user);
+    const { runAction, pendingPlantIds, actionError } = usePlantActions();
     const filters = usePlantFilters(plants);
     const { showTrash, showOnlyNeedReplant, sortedPlants, sortedTrashPlants } = filters;
     const addForm = usePlantDraft();
@@ -131,6 +133,8 @@ function PlantsPage() {
 
                 {loadingPlants && <p className='startMessage'>Загружаем ваши растения…</p>}
                 {plantsError && <p className='formError' role='alert'>{plantsError}</p>}
+                {actionError && <p className='formError' role='alert'>{actionError}</p>}
+                {pendingPlantIds.size > 0 && <p role='status'>Сохраняем изменения…</p>}
 
                 <div className={plantListClassName} role='list' aria-label='Растения'>
                     {emptyMessage && <p className='startMessage' role='status'>{emptyMessage}</p>}
@@ -139,6 +143,8 @@ function PlantsPage() {
                             key={plant.id}
                             plant={plant}
                             actions={actions}
+                            isPending={pendingPlantIds.has(plant.id)}
+                            runAction={(action, errorMessage) => runAction(plant, action, errorMessage)}
                             editor={editor}
                             noteText={noteTextByPlant[plant.id] || ''}
                             onNoteTextChange={(value) => setNoteTextByPlant((previous) => ({ ...previous, [plant.id]: value }))}

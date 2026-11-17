@@ -19,7 +19,7 @@ import closeIcon from '../i/icons/close.svg';
 
 import PlantForm from './PlantForm';
 
-function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash = false }) {
+function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash = false, isPending, runAction }) {
   const {
     handleWaterPlant, handleFertilizePlant, deleteWateringEntry, deleteFertilizingEntry,
     handleDeletePlant, toggleNeedReplant, togglePinPlant, toggleHidePlant,
@@ -27,9 +27,6 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
   } = actions;
   const { editingId, draft: editPlant, startEdit: startEditPlant, cancelEdit, handlePhotoChange } = editor;
   const [isDotsMenuOpen, setIsDotsMenuOpen] = useState(false);
-  const [isSavingNote, setIsSavingNote] = useState(false);
-  const [noteError, setNoteError] = useState('');
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
   const isEditing = editingId === plant.id;
   const noteInputRef = useAutoResizeTextarea(noteText, isEditing, isTrash);
@@ -47,36 +44,27 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
   const isHidden = !!plant.hidden;
 
   const submitNote = async () => {
-    if (isSavingNote || !noteText.trim()) return;
-    setNoteError('');
-    setIsSavingNote(true);
-    try {
-      await addNoteToPlant(plant.id, notes, noteText);
-      onNoteTextChange('');
-    } catch {
-      setNoteError('Не удалось сохранить заметку. Попробуйте ещё раз.');
-    } finally {
-      setIsSavingNote(false);
-    }
+    if (isPending || !noteText.trim()) return;
+    const saved = await runAction(
+      () => addNoteToPlant(plant.id, notes, noteText),
+      'Не удалось сохранить заметку. Попробуйте ещё раз.'
+    );
+    if (saved) onNoteTextChange('');
   };
 
   const submitEdit = async (event) => {
     event.preventDefault();
-    if (isSavingEdit || editor.isProcessingPhoto) return;
+    if (isPending || editor.isProcessingPhoto) return;
     if (!editPlant.name.trim()) {
       setEditError('Введите название растения.');
       return;
     }
     setEditError('');
-    setIsSavingEdit(true);
-    try {
-      await actions.savePlant(plant.id, editPlant);
-      cancelEdit();
-    } catch {
-      setEditError('Не удалось сохранить изменения. Попробуйте ещё раз.');
-    } finally {
-      setIsSavingEdit(false);
-    }
+    const saved = await runAction(
+      () => actions.savePlant(plant.id, editPlant),
+      'Не удалось сохранить изменения. Попробуйте ещё раз.'
+    );
+    if (saved) cancelEdit();
   };
 
   const renderNoteItem = (note) => (
@@ -95,7 +83,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
         <button
           className='btn btnDelete'
           type='button'
-          onClick={() => deleteNoteFromPlant(plant.id, notes, note.id)}
+          disabled={isPending}
+          onClick={() => runAction(
+            () => deleteNoteFromPlant(plant.id, notes, note.id),
+            'Не удалось удалить заметку. Попробуйте ещё раз.'
+          )}
         >
           ✖
         </button>
@@ -106,6 +98,8 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
   return (
     <div
       role='listitem'
+      aria-label={plant.name}
+      aria-busy={isPending}
       className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isTrash ? "plantWrap--trash" : ""}`}
       onMouseLeave={() => setIsDotsMenuOpen(false)}
     >
@@ -123,7 +117,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
             onPhotoChange={handlePhotoChange}
             onSubmit={submitEdit}
             onCancel={() => { setEditError(''); cancelEdit(); }}
-            isSubmitting={isSavingEdit}
+            isSubmitting={isPending}
             error={editError || editor.photoError}
             isProcessingPhoto={editor.isProcessingPhoto}
           />
@@ -150,7 +144,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                     className='aboutWatering'
                     listClassName='wateringList'
                     isTrash={isTrash}
-                    onDelete={deleteWateringEntry}
+                    isPending={isPending}
+                    onDelete={(id, log, date) => runAction(
+                      () => deleteWateringEntry(id, log, date),
+                      'Не удалось удалить запись полива. Попробуйте ещё раз.'
+                    )}
                   />
                   <PlantCareHistory
                     plantId={plant.id}
@@ -160,7 +158,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                     className='aboutFertilizing'
                     listClassName='fertilizingList'
                     isTrash={isTrash}
-                    onDelete={deleteFertilizingEntry}
+                    isPending={isPending}
+                    onDelete={(id, log, date) => runAction(
+                      () => deleteFertilizingEntry(id, log, date),
+                      'Не удалось удалить запись удобрения. Попробуйте ещё раз.'
+                    )}
                   />
                 </div>
                 <div className='textInfos'>
@@ -179,21 +181,20 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                           aria-label='Новая заметка'
                           placeholder='Новая заметка...'
                           value={noteText}
-                          disabled={isSavingNote}
+                          disabled={isPending}
                           onChange={(e) => onNoteTextChange(e.target.value)}
                         />
                         <button
                           className='btn btnSubmit'
                           type='button'
                           onClick={submitNote}
-                          disabled={isSavingNote}
+                          disabled={isPending}
                           aria-label='Сохранить заметку'
                         >
                           ↩
                         </button>
                       </div>
                     )}
-                    {noteError && <p className='formError' role='alert'>{noteError}</p>}
 
                     {sortedNotes.length === 0 && (
                       <p className='notesEmpty'>Пока нет заметок.</p>
@@ -240,7 +241,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                 <div className='btnsWrap cardBtns'>
                   <button
                     className='btn btnWatering'
-                    onClick={() => handleWaterPlant(plant.id, wateringLog)}
+                    disabled={isPending}
+                    onClick={() => runAction(
+                      () => handleWaterPlant(plant.id, wateringLog),
+                      'Не удалось сохранить полив. Попробуйте ещё раз.'
+                    )}
                   >
                     <span>
                       <img src={iconEmojiDroplet} alt='iconEmojiDroplet'/>
@@ -248,7 +253,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                   </button>
                   <button
                     className='btn btnFertilizing'
-                    onClick={() => handleFertilizePlant(plant.id, fertilizingLog)}
+                    disabled={isPending}
+                    onClick={() => runAction(
+                      () => handleFertilizePlant(plant.id, fertilizingLog),
+                      'Не удалось сохранить удобрение. Попробуйте ещё раз.'
+                    )}
                   >
                     <span>
                       <img src={iconEmojiTestTube} alt='iconEmojiTestTube'/>
@@ -258,6 +267,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                     <>
                       <button
                         className='btn btnEdit'
+                        disabled={isPending}
                         onClick={() => startEditPlant(plant)}
                       >
                         <span>
@@ -266,7 +276,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                       </button>
                       <button
                         className={`btn btnPin ${isPinned ? 'btnPin--active' : ''}`}
-                        onClick={() => togglePinPlant(plant.id, isPinned)}
+                        disabled={isPending}
+                        onClick={() => runAction(
+                          () => togglePinPlant(plant.id, isPinned),
+                          'Не удалось изменить закрепление. Попробуйте ещё раз.'
+                        )}
                       >
                         <span>
                           <img src={iconEmojiPushpin} alt='iconEmojiPushpin'/>
@@ -274,7 +288,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                       </button>
                       <button
                         className={`btn btnReplant ${needReplant ? 'btnReplant--active' : ''}`}
-                        onClick={() => toggleNeedReplant(plant.id, needReplant)}
+                        disabled={isPending}
+                        onClick={() => runAction(
+                          () => toggleNeedReplant(plant.id, needReplant),
+                          'Не удалось изменить отметку пересадки. Попробуйте ещё раз.'
+                        )}
                       >
                         <span>
                           <img src={iconEmojiShovel} alt='iconEmojiShovel'/>
@@ -282,7 +300,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                       </button>
                       <button
                         className={`btn btnHide ${isHidden ? 'btnHide--active' : ''}`}
-                        onClick={() => toggleHidePlant(plant.id, isHidden)}
+                        disabled={isPending}
+                        onClick={() => runAction(
+                          () => toggleHidePlant(plant.id, isHidden),
+                          'Не удалось изменить видимость растения. Попробуйте ещё раз.'
+                        )}
                       >
                         <span>
                           <img src={iconEmojiEye} alt='iconEmojiEye'/>
@@ -293,7 +315,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                       </button>
                       <button
                         className='btn btnDelete'
-                        onClick={() => handleDeletePlant(plant.id)}
+                        disabled={isPending}
+                        onClick={() => runAction(
+                          () => handleDeletePlant(plant.id),
+                          'Не удалось переместить растение в корзину. Попробуйте ещё раз.'
+                        )}
                       >
                         <span>
                           <img src={iconEmojiWastebasket} alt='iconEmojiWastebasket'/>
@@ -319,7 +345,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                   <button
                     className="btn btnRestore"
                     aria-label="Восстановить растение"
-                    onClick={() => restorePlant(plant.id)}
+                    disabled={isPending}
+                    onClick={() => runAction(
+                      () => restorePlant(plant.id),
+                      'Не удалось восстановить растение. Попробуйте ещё раз.'
+                    )}
                   >
                     <span><img src={recycleIcon} alt='' /></span>
                   </button>
@@ -327,7 +357,11 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                   <button
                     className="btn btnDelete"
                     aria-label="Удалить растение навсегда"
-                    onClick={() => permanentlyDeletePlant(plant.id)}
+                    disabled={isPending}
+                    onClick={() => runAction(
+                      () => permanentlyDeletePlant(plant.id),
+                      'Не удалось удалить растение навсегда. Попробуйте ещё раз.'
+                    )}
                   >
                     <span><img src={iconEmojiWastebasket} alt='' /></span>
                   </button>
