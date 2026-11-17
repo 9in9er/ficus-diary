@@ -1,6 +1,6 @@
 import { formatDate, getDaysSinceLastAction } from '../utils/plantDates';
 
-export default function PlantCareHistory({ plantId, log, title, emptyMessage, className, listClassName, isTrash, onDelete }) {
+export default function PlantCareHistory({ plantId, log, title, emptyMessage, className, listClassName, isTrash, isPending, onDelete }) {
   const daysSinceLast = getDaysSinceLastAction(log);
   const label = <strong>{title}: <br /></strong>;
 
@@ -17,7 +17,7 @@ export default function PlantCareHistory({ plantId, log, title, emptyMessage, cl
               <li key={date}>
                 {formatDate(date)}
                 {!isTrash && (
-                  <button className='btn btnDelete' type='button' aria-label={`Удалить запись: ${title.toLowerCase()}, ${formatDate(date)}`} onClick={() => onDelete(plantId, log, date)}>✖</button>
+                  <button className='btn btnDelete' type='button' disabled={isPending} aria-label={`Удалить запись: ${title.toLowerCase()}, ${formatDate(date)}`} onClick={() => onDelete(plantId, log, date)}>✖</button>
                 )}
               </li>
             ))}
