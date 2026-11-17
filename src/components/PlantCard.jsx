@@ -11,6 +11,7 @@ import iconEmojiPushpin from '../i/icons/pin.svg';
 import iconEmojiEye from '../i/icons/eye.svg';
 import iconEmojiEyeOff from '../i/icons/eye-off.svg';
 import iconEmojiWastebasket from '../i/icons/trash.svg';
+import recycleIcon from '../i/icons/recycle.svg';
 import iconEmojiShovel from '../i/icons/shovel.svg';
 
 import dotsMenuIcon from '../i/icons/dots-menu.svg';
@@ -317,17 +318,19 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                 <div className='btnsWrap cardBtns'>
                   <button
                     className="btn btnRestore"
+                    aria-label="Восстановить растение"
                     onClick={() => restorePlant(plant.id)}
-                >
-                    ♻️
-                </button>
+                  >
+                    <span><img src={recycleIcon} alt='' /></span>
+                  </button>
 
-                <button
+                  <button
                     className="btn btnDelete"
+                    aria-label="Удалить растение навсегда"
                     onClick={() => permanentlyDeletePlant(plant.id)}
-                >
-                    🗑️
-                </button>
+                  >
+                    <span><img src={iconEmojiWastebasket} alt='' /></span>
+                  </button>
                 </div>
               )}
             </div>

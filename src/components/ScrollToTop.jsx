@@ -20,6 +20,9 @@ function ScrollToTop() {
     <button
       type="button"
       className={`btnScrollTop ${visible ? 'visible' : ''}`}
+      tabIndex={visible ? 0 : -1}
+      aria-hidden={!visible}
+      aria-label="Наверх"
       onClick={handleClick}
     >
       ↑

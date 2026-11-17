@@ -290,7 +290,8 @@
                                         pointer-events: none;
                                     }
 
-                                    &:hover {
+                                    &:hover,
+                                    &:focus-within {
                                         .btn.btnDelete {
                                             opacity: 1;
                                             pointer-events: all;
