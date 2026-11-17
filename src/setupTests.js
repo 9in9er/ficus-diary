@@ -8,3 +8,9 @@ import '@testing-library/jest-dom';
 const { TextEncoder, TextDecoder } = require('util');
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
+
+// jsdom не реализует dialog. Его модальность и клавиатуру проверяем в Chrome.
+if (!HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
+}

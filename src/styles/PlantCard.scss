@@ -58,6 +58,10 @@
 
     margin-top: rem.convert(15px);
 
+    > .startMessage {
+        width: 100%;
+    }
+
     .plantWrap {
         background-color: #fff;
 
@@ -158,6 +162,7 @@
 
                 .plantName {
                     width: calc(100% - rem.convert(150px));
+                    overflow-wrap: anywhere;
 
                     margin-top: rem.convert(10px);
 

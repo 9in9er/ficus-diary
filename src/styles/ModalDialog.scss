@@ -1,0 +1,28 @@
+@use 'sass-rem' as rem;
+@use './variables' as *;
+
+.modalDialog {
+  width: calc(100% - #{rem.convert(24px)});
+  max-width: rem.convert(500px);
+  max-height: calc(100% - #{rem.convert(24px)});
+  margin: auto;
+  padding: rem.convert(20px 24px);
+  box-sizing: border-box;
+  border: 0;
+  border-radius: rem.convert(8px);
+  box-shadow: rem.convert(0 4px 16px rgba(0, 0, 0, 0.2));
+  overflow: auto;
+
+  &::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  h2 {
+    margin-bottom: rem.convert(16px);
+  }
+
+  :is(input, button, textarea):focus-visible {
+    outline: 1px solid $pixelatedGrassColor;
+    outline-offset: -1px;
+  }
+}

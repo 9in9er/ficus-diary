@@ -26,6 +26,21 @@
   }
 }
 
+.authField {
+  display: flex;
+  flex-direction: column;
+  gap: rem.convert(6px);
+}
+
+.authForm small {
+  color: $grayTextColor;
+}
+
+.authScreen :is(input, button):focus-visible {
+  outline: 2px solid $pixelatedGrassColor;
+  outline-offset: rem.convert(3px);
+}
+
 .forgotPassword {
   text-align: center;
 

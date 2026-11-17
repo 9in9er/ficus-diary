@@ -10,6 +10,7 @@ import PlantCard from './PlantCard';
 import ScrollToTop from './ScrollToTop';
 import Footer from './Footer';
 import PlantsToolbar from './PlantsToolbar';
+import ModalDialog from './ModalDialog';
 
 function PlantsPage() {
     const { user } = useAuth();
@@ -76,6 +77,14 @@ function PlantsPage() {
     
 
     const visiblePlants = showTrash ? sortedTrashPlants : sortedPlants;
+    let emptyMessage = '';
+    if (!loadingPlants && !plantsError && visiblePlants.length === 0) {
+        if (showTrash) emptyMessage = 'Корзина пуста.';
+        else if (filters.searchQuery) emptyMessage = 'По вашему запросу растения не найдены. Попробуйте изменить поиск или фильтры.';
+        else if (plants.length === 0) emptyMessage = 'Добавьте первое растение!';
+        else if (showOnlyNeedReplant) emptyMessage = 'Нет растений для пересадки с учётом выбранных фильтров.';
+        else emptyMessage = 'Нет растений с учётом выбранных фильтров.';
+    }
 
     return (
         <>
@@ -103,33 +112,28 @@ function PlantsPage() {
                 />
 
                 {isAddModalOpen && (
-                    <div className='modalOverlay' onClick={closeAddModal}>
-                        <div className='modal' onClick={(event) => event.stopPropagation()}>
-                            <h2>Добавить растение</h2>
-                            <PlantForm
-                                name={addForm.draft.name}
-                                acquiredAt={addForm.draft.acquiredAt}
-                                onNameChange={(value) => addForm.setField('name', value)}
-                                onDateChange={(value) => addForm.setField('acquiredAt', value)}
-                                onPhotoChange={addForm.handlePhotoChange}
-                                onSubmit={submitNewPlant}
-                                onCancel={closeAddModal}
-                                isSubmitting={isAddingPlant}
-                                isProcessingPhoto={addForm.isProcessingPhoto}
-                                error={addPlantError || addForm.photoError}
-                            />
-                        </div>
-                    </div>
+                    <ModalDialog labelledBy='addPlantTitle' onClose={closeAddModal} isBusy={isAddingPlant}>
+                        <h2 id='addPlantTitle'>Добавить растение</h2>
+                        <PlantForm
+                            name={addForm.draft.name}
+                            acquiredAt={addForm.draft.acquiredAt}
+                            onNameChange={(value) => addForm.setField('name', value)}
+                            onDateChange={(value) => addForm.setField('acquiredAt', value)}
+                            onPhotoChange={addForm.handlePhotoChange}
+                            onSubmit={submitNewPlant}
+                            onCancel={closeAddModal}
+                            isSubmitting={isAddingPlant}
+                            isProcessingPhoto={addForm.isProcessingPhoto}
+                            error={addPlantError || addForm.photoError}
+                        />
+                    </ModalDialog>
                 )}
 
                 {loadingPlants && <p className='startMessage'>Загружаем ваши растения…</p>}
                 {plantsError && <p className='formError' role='alert'>{plantsError}</p>}
 
                 <div className={plantListClassName} role='list' aria-label='Растения'>
-                    {!loadingPlants && showTrash && visiblePlants.length === 0 && <p>Корзина пуста.</p>}
-                    {!loadingPlants && !showTrash && showOnlyNeedReplant && visiblePlants.length === 0 && (
-                        <p className='startMessage'>Нет растений для пересадки с учётом выбранных фильтров.</p>
-                    )}
+                    {emptyMessage && <p className='startMessage' role='status'>{emptyMessage}</p>}
                     {visiblePlants.map((plant) => (
                         <PlantCard
                             key={plant.id}
@@ -143,9 +147,6 @@ function PlantsPage() {
                     ))}
                 </div>
 
-                {!loadingPlants && !plantsError && plants.length === 0 && (
-                    <p className='startMessage'>Добавьте первое растение!</p>
-                )}
             </div>
             <ScrollToTop />
             <Footer />
