@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /plants/{plantId} {
+      function isOwner() {
+        return request.auth != null && resource.data.userId == request.auth.uid;
+      }
+      allow read: if isOwner();
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'name', 'acquiredAt', 'description', 'price', 'links', 'isWishlisted',
+          'wateringLog', 'fertilizingLog', 'notes', 'userId', 'createdAt',
+          'pinned', 'hidden', 'deletedAt', 'replanted'
+        ]);
+      // Only the API can change photoKey, legacy photo, owner or deletion locks.
+      // Existing base64 fields remain readable and unchanged.
+      allow update: if isOwner()
+        && request.resource.data.userId == resource.data.userId
+        && resource.data.get('_photoDeleting', false) == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'acquiredAt', 'description', 'price', 'links', 'isWishlisted',
+          'wateringLog', 'fertilizingLog', 'notes', 'createdAt',
+          'pinned', 'hidden', 'deletedAt', 'replanted'
+        ]);
+      allow delete: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

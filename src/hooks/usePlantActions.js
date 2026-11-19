@@ -14,8 +14,8 @@ export default function usePlantActions() {
     try {
       await action();
       return true;
-    } catch {
-      setActionError(`${plant.name}: ${errorMessage}`);
+    } catch (error) {
+      setActionError(`${plant.name}: ${error.photoError ? error.message : errorMessage}`);
       return false;
     } finally {
       inFlight.current.delete(plant.id);

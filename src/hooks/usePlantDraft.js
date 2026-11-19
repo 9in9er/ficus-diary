@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { resizePlantPhoto } from '../utils/resizePlantPhoto';
 
-const emptyDraft = () => ({ name: '', acquiredAt: '', photo: null, description: '', price: '', links: '' });
+const emptyDraft = () => ({ name: '', acquiredAt: '', photo: null, photoBlob: null, description: '', price: '', links: '' });
 
 export default function usePlantDraft() {
   const [draft, setDraft] = useState(emptyDraft);
@@ -17,6 +17,7 @@ export default function usePlantDraft() {
       name: plant.name,
       acquiredAt: plant.acquiredAt || '',
       photo: plant.photo || null,
+      photoBlob: null,
       description: plant.description || '',
       price: plant.price || '',
       links: Array.isArray(plant.links) ? plant.links.join('\n') : '',
@@ -34,8 +35,8 @@ export default function usePlantDraft() {
     setPhotoError('');
     setIsProcessingPhoto(true);
     try {
-      const photo = await resizePlantPhoto(file);
-      if (request === photoRequest.current) setField('photo', photo);
+      const photoBlob = await resizePlantPhoto(file);
+      if (request === photoRequest.current) setField('photoBlob', photoBlob);
     } catch {
       if (request === photoRequest.current) {
         setPhotoError('Не удалось обработать фото. Выберите другое изображение.');

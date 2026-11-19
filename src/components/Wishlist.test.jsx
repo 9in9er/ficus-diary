@@ -4,6 +4,9 @@ import { addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestor
 import PlantsPage from './PlantsPage';
 import { getLocalDate } from '../utils/plantDates';
 import { resizePlantPhoto } from '../utils/resizePlantPhoto';
+import { photoRequest, savePlantPhoto } from '../services/plantPhotos';
+
+jest.mock('../services/plantPhotos', () => ({ photoRequest: jest.fn(), savePlantPhoto: jest.fn() }));
 
 jest.mock('../firebase', () => ({ db: {} }));
 jest.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { uid: 'user-1' } }) }));
@@ -45,14 +48,16 @@ beforeEach(() => {
   jest.resetAllMocks();
   localStorage.clear();
   records = [ordinary, wish];
-  doc.mockImplementation((db, collection, id) => ({ id }));
+  doc.mockImplementation((db, collection, id) => ({ id: id || 'new-wish' }));
   onSnapshot.mockImplementation((query, onSuccess) => {
     listener = onSuccess;
     onSuccess(snapshot());
     return jest.fn();
   });
   addDoc.mockResolvedValue({ id: 'new-wish' });
-  resizePlantPhoto.mockResolvedValue('data:image/png;base64,photo');
+  resizePlantPhoto.mockResolvedValue(new Blob(['photo'], { type: 'image/webp' }));
+  savePlantPhoto.mockResolvedValue({ photoKey: 'new-key' });
+  photoRequest.mockResolvedValue({ deleted: true });
   updateDoc.mockImplementation(async ({ id }, changes) => {
     records = records.map((record) => record.id === id ? { ...record, ...changes } : record);
     listener(snapshot());
@@ -87,12 +92,14 @@ test('adds a wish with a photo, optional details and normalized links', async ()
   }));
   fireEvent.submit(screen.getByRole('form'));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  expect(addDoc).toHaveBeenCalledWith(undefined, expect.objectContaining({
-    name: 'Монстера', userId: 'user-1', isWishlisted: true,
-    photo: 'data:image/png;base64,photo', description: 'Большие листья', price: 'около 3 000 ₽',
-    links: ['https://example.com/plant', 'https://shop.example.com/item'],
+  expect(savePlantPhoto).toHaveBeenCalledWith({ uid: 'user-1' }, expect.objectContaining({
+    plantId: 'new-wish', creating: true, isWishlisted: true,
+    blob: expect.any(Blob), fields: {
+      name: 'Монстера', description: 'Большие листья', price: 'около 3 000 ₽',
+      links: ['https://example.com/plant', 'https://shop.example.com/item'],
+    },
   }));
-  expect(addDoc.mock.calls[0][1]).not.toHaveProperty('acquiredAt');
+  expect(addDoc).not.toHaveBeenCalled();
 });
 
 test('keeps an unsaved wish on error, rejects unsafe links, and allows retrying', async () => {
@@ -173,7 +180,7 @@ test('moves a wish to its own trash and restores it into the wishlist', async ()
   await waitFor(() => expect(screen.queryByRole('listitem')).not.toBeInTheDocument());
   expect(deleteDoc).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Корзина · 1' }));
-  expect(screen.getByText(/хранятся в корзине 30 дней/)).toBeInTheDocument();
+  expect(screen.getByText(/остаются в корзине до окончательного удаления/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Уже у меня' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Восстановить' }));
   await waitFor(() => expect(screen.queryByRole('listitem')).not.toBeInTheDocument());
@@ -192,7 +199,8 @@ test('confirms permanent deletion and supports cancelling it', async () => {
   expect(deleteDoc).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Удалить навсегда' }));
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Удалить навсегда' }));
-  await waitFor(() => expect(deleteDoc).toHaveBeenCalledWith({ id: wish.id }));
+  await waitFor(() => expect(photoRequest).toHaveBeenCalledWith({ uid: 'user-1' }, { action: 'delete', plantId: wish.id }));
+  expect(deleteDoc).not.toHaveBeenCalled();
 });
 
 test('searches and sorts wishes and keeps collection sorting independent', () => {
