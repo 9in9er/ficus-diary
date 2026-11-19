@@ -1,6 +1,10 @@
 export const DAY_IN_MS = 1000 * 60 * 60 * 24;
 export const TRASH_RETENTION_DAYS = 30;
 
+export function getLocalDate(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export function formatDate(isoString) {
   return new Date(isoString).toLocaleDateString('ru-RU');
 }

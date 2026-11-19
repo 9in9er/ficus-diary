@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { resizePlantPhoto } from '../utils/resizePlantPhoto';
 
-const emptyDraft = () => ({ name: '', acquiredAt: '', photo: null });
+const emptyDraft = () => ({ name: '', acquiredAt: '', photo: null, description: '', price: '', links: '' });
 
 export default function usePlantDraft() {
   const [draft, setDraft] = useState(emptyDraft);
@@ -17,6 +17,9 @@ export default function usePlantDraft() {
       name: plant.name,
       acquiredAt: plant.acquiredAt || '',
       photo: plant.photo || null,
+      description: plant.description || '',
+      price: plant.price || '',
+      links: Array.isArray(plant.links) ? plant.links.join('\n') : '',
     } : emptyDraft());
   };
 

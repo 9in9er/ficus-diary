@@ -47,6 +47,19 @@
 
   .plantsToolbarActions { flex-shrink: 0; }
 
+  .plantsNavigation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: rem.convert(8px);
+    margin-top: rem.convert(12px);
+
+    .btn.active {
+      background: #eaf6ee;
+      border-color: #008c38;
+      color: #006b2c;
+    }
+  }
+
   .btn {
     display: inline-flex;
     align-items: center;
@@ -210,6 +223,7 @@
     .searchGroup { grid-column: 1 / -1; }
     .gridControls--desktop { display: none; }
     .gridControls--mobile { display: flex; }
+    .plantsToolbarControls--wishlist { grid-template-columns: minmax(0, 1fr); }
 
     .plantsToolbarFilters {
       margin-top: rem.convert(20px);
