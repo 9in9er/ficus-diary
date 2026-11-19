@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import Header from './Header';
 import sproutIcon from '../i/icons/sprout.svg';
 import hiddenIcon from '../i/icons/eye-off.svg';
@@ -45,6 +45,7 @@ function GridControls({ mobile, value, onChange, compactColumns, regularColumns 
 }
 
 export default function PlantsToolbar({
+    isWishlist = false,
     count,
     trashCount,
     onAdd,
@@ -67,15 +68,19 @@ export default function PlantsToolbar({
 }) {
     const showAll = !showOnlyHidden && !showOnlyNeedReplant && !showTrash;
     return (
-        <section className='plantsToolbar' aria-label='Управление растениями'>
+        <section className='plantsToolbar' aria-label={isWishlist ? 'Управление вишлистом' : 'Управление растениями'}>
             <div className='plantsToolbarHeader'>
                 <Header showCount count={count} compact />
                 <div className='plantsToolbarActions'>
-                    <button className='btn btnAddPlant' type='button' onClick={onAdd} aria-label='Добавить растение'><ToolbarIcon name='plus' />Добавить</button>
+                    <button className='btn btnAddPlant' type='button' onClick={onAdd} aria-label={isWishlist ? 'Добавить в вишлист' : 'Добавить растение'}><ToolbarIcon name='plus' />Добавить</button>
                     <Link className='btn btnAccount' to='/account' aria-label='Личный кабинет' title='Личный кабинет'><ToolbarIcon name='account' /></Link>
                 </div>
             </div>
-            <div className='plantsToolbarControls'>
+            <nav className='plantsNavigation' aria-label='Разделы растений'>
+                <NavLink className='btn' to='/plants'>Мои растения</NavLink>
+                <NavLink className='btn' to='/wishlist'>Вишлист</NavLink>
+            </nav>
+            <div className={`plantsToolbarControls ${isWishlist ? 'plantsToolbarControls--wishlist' : ''}`}>
                 <div className='searchGroup'>
                     <input className='searchInput' type='search' placeholder='Поиск по названию...' aria-label='Поиск растений по названию' value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     {searchQuery && <button type='button' className='btn clearSearch' onClick={() => setSearchQuery('')} aria-label='Очистить поиск'>×</button>}
@@ -84,23 +89,23 @@ export default function PlantsToolbar({
                     <select aria-label='Сортировать растения' value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
                         <option value='date'>Добавлены: новые → старые</option>
                         <option value='name'>Название: А → Я</option>
-                        <option value='watering'>Полив: давно → недавно</option>
+                        {!isWishlist && <option value='watering'>Полив: давно → недавно</option>}
                     </select>
                     <ToolbarIcon name='chevron' />
                 </div>
-                <GridControls value={gridColumns} onChange={setGridColumns} compactColumns={compactColumns} regularColumns={regularColumns} />
-                <GridControls mobile value={mobileCompact} onChange={setMobileCompact} />
+                <GridControls value={gridColumns} onChange={setGridColumns} compactColumns={isWishlist ? null : compactColumns} regularColumns={regularColumns} />
+                {!isWishlist && <GridControls mobile value={mobileCompact} onChange={setMobileCompact} />}
             </div>
             <div className='plantsToolbarFilters' role='group' aria-label='Фильтры растений'>
                 <button className={`btn filterChip ${showAll ? 'filterChip--active' : ''}`} type='button' aria-pressed={showAll} onClick={() => { setShowOnlyHidden(false); setShowOnlyNeedReplant(false); setShowTrash(false); }}>
-                    <img className='filterIcon' src={sproutIcon} alt='' /><span className='desktopLabel'>Все растения</span><span className='mobileLabel'>Все</span>
+                    <img className='filterIcon' src={sproutIcon} alt='' /><span className='desktopLabel'>{isWishlist ? 'Все желания' : 'Все растения'}</span><span className='mobileLabel'>Все</span>
                 </button>
-                <button className={`btn filterChip ${showOnlyHidden && !showTrash ? 'filterChip--active' : ''}`} type='button' aria-pressed={showOnlyHidden && !showTrash} onClick={() => { setShowOnlyHidden(!showOnlyHidden); setShowTrash(false); }}>
+                {!isWishlist && <><button className={`btn filterChip ${showOnlyHidden && !showTrash ? 'filterChip--active' : ''}`} type='button' aria-pressed={showOnlyHidden && !showTrash} onClick={() => { setShowOnlyHidden(!showOnlyHidden); setShowTrash(false); }}>
                     <img className='filterIcon' src={hiddenIcon} alt='' />Скрытые
                 </button>
                 <button className={`btn filterChip ${showOnlyNeedReplant && !showTrash ? 'filterChip--active' : ''}`} type='button' aria-pressed={showOnlyNeedReplant && !showTrash} onClick={() => { setShowOnlyNeedReplant(!showOnlyNeedReplant); setShowTrash(false); }}>
                     <img className='filterIcon' src={shovelIcon} alt='' /><span className='desktopLabel'>На пересадку</span><span className='mobileLabel'>Пересадка</span>
-                </button>
+                </button></>}
                 <div className='trashFilter'>
                     <button className={`btn filterChip ${showTrash ? 'filterChip--active' : ''}`} type='button' aria-pressed={showTrash} onClick={() => setShowTrash(!showTrash)}>
                         <img className='filterIcon' src={trashIcon} alt='' />Корзина · {trashCount}

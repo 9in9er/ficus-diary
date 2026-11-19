@@ -18,16 +18,16 @@ function comparePlants(a, b, sortMode) {
   return bDate.localeCompare(aDate);
 }
 
-export default function usePlantFilters(plants) {
+export default function usePlantFilters(plants, sortStorageKey = 'plantsSortMode') {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortMode, setSortMode] = useState(() => localStorage.getItem('plantsSortMode') || 'date');
+  const [sortMode, setSortMode] = useState(() => localStorage.getItem(sortStorageKey) || 'date');
   const [showOnlyHidden, setShowOnlyHidden] = useState(false);
   const [showOnlyNeedReplant, setShowOnlyNeedReplant] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('plantsSortMode', sortMode);
-  }, [sortMode]);
+    localStorage.setItem(sortStorageKey, sortMode);
+  }, [sortMode, sortStorageKey]);
 
   const normalizedSearch = searchQuery.toLowerCase();
   const sortedPlants = plants.filter((plant) => {

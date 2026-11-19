@@ -24,6 +24,14 @@ function App() {
             }
           />
           <Route
+            path='/wishlist'
+            element={
+              <AuthGuard>
+                <PlantsPage key='wishlist' isWishlist />
+              </AuthGuard>
+            }
+          />
+          <Route
             path='/account'
             element={
               <AuthGuard>

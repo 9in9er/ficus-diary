@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { DAY_IN_MS, TRASH_RETENTION_DAYS } from '../utils/plantDates';
+import { DAY_IN_MS, TRASH_RETENTION_DAYS, getLocalDate } from '../utils/plantDates';
+import { getWishlistDetails } from '../utils/wishlist';
 
 const CARE_LOG_LIMIT = 8;
 
@@ -63,6 +64,20 @@ export function usePlants(user) {
     name: draft.name, acquiredAt: draft.acquiredAt, photo: draft.photo,
   });
 
+  const createWish = async (draft) => {
+    if (!draft.name.trim() || !userId) throw new Error('Не заполнены данные растения или аккаунта.');
+    await addDoc(collection(db, 'plants'), {
+      name: draft.name.trim(), photo: draft.photo,
+      ...getWishlistDetails(draft),
+      isWishlisted: true, userId, createdAt: new Date().toISOString(),
+      deletedAt: null, hidden: false, pinned: false,
+    });
+  };
+
+  const saveWish = (id, draft) => updatePlant(id, {
+    name: draft.name.trim(), photo: draft.photo, ...getWishlistDetails(draft),
+  });
+
   const appendCareEntry = (id, field, log) => {
     const entries = Array.isArray(log) ? log : [];
     return updatePlant(id, { [field]: [...entries, new Date().toISOString()].slice(-CARE_LOG_LIMIT) });
@@ -83,6 +98,14 @@ export function usePlants(user) {
   const actions = {
     createPlant,
     savePlant,
+    createWish,
+    saveWish,
+    acquireWish: (id) => updatePlant(id, {
+      isWishlisted: false, acquiredAt: getLocalDate(),
+      createdAt: new Date().toISOString(),
+      wateringLog: [], fertilizingLog: [], notes: [],
+      pinned: false, hidden: false, replanted: false, deletedAt: null,
+    }),
     handleDeletePlant: (id) => updatePlant(id, {
       deletedAt: new Date().toISOString(), hidden: false, pinned: false,
     }),
