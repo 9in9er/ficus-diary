@@ -94,6 +94,64 @@ Node-функций; AWS SDK, Firebase Admin и Sharp находятся в се
 проходит через лимит тела запроса Vercel Function. Серверные модули не импортируются
 браузерным кодом. Изменение env требует новой сборки/Preview.
 
+## Исправление загрузки `/api/photos` на Node.js 24 (20 ноября 2026)
+
+В `package-lock.json`: `firebase-admin@14.5.1` → `jwks-rsa@4.1.0` →
+`jose@6.2.18`. Это также последние версии по npm Registry на дату проверки.
+`jwks-rsa` синхронно требует ESM-модуль `jose` в `src/utils.js` и
+`src/integrations/passport.js`; второй модуль тоже загружается при импорте
+`firebase-admin/auth`. При отключённом `require(esm)` функция падает ещё до
+обработки запроса. Обычный локальный запуск Node.js 24 скрывал эту проблему.
+Замена только импорта в приложении не исправляет внутренний `require('jose')`.
+
+`patches/jwks-rsa+4.1.0.patch` заменяет оба импорта на динамический `import()`
+внутри асинхронных операций. `patch-package@8.0.1` применяет патч автоматически
+через `postinstall`, в том числе при `npm ci`; ручные правки `node_modules` не
+нужны. Ошибка применения останавливает установку (`--error-on-fail`). Scoped
+override фиксирует `jwks-rsa@4.1.0` для Firebase Admin, чтобы обновление зависимости
+не оставило этот патч незаметно несовместимым. При переходе на upstream-исправление
+нужно удалить патч и override и повторить runtime-тесты. Установка с
+`--ignore-scripts` несовместима с этим исправлением; в Build Logs должна быть
+строка `jwks-rsa@4.1.0 ✔`.
+
+Отката библиотек нет: `jose` 6 остаётся поддерживаемой веткой; версия 5 прекратила
+получать исправления безопасности 30 апреля 2026 года. Полная пересборка сторонних
+модулей добавляла бы отдельный этап сборки и больший объём изменений, поэтому здесь
+используется узкий воспроизводимый патч загрузчика. `npm audit --omit=dev` до и
+после изменения показывает те же 50 находок (9 low, 8 moderate, 32 high, 1 critical).
+Для `firebase-admin`, `jwks-rsa`, `jose`, `patch-package` и прямых зависимостей
+инструмента патча находок нет; общий audit проекта не является чистым.
+
+`npm.cmd run test:server` теперь всегда отключает `require(esm)`. Новый
+`tests/server/runtime.test.cjs` дополнительно создаёт чистый production-процесс
+Node.js 24 с `VERCEL_ENV=preview` без унаследованных облачных секретов и загружает
+реальный `api/photos.js` до установки заглушек. Шесть внутренних сценариев
+проверяют холодный старт, Firebase ID Token с настоящей RSA-подписью, отказ при
+неверной подписи/claims/алгоритме/сроке, отзыв токена, отключённого пользователя,
+преобразование JWK через `jose` и callback-интеграцию Passport. Проверка токена
+и `verifyIdToken(token, true)` выполняются настоящим SDK; заменены только HTTP-
+ответы и получение OAuth access token. Firestore и S3 не читаются и не изменяются.
+
+Проверки: 26 серверных тестов (включая 6 сценариев в дочернем процессе),
+108 клиентских тестов, production build — успешно. Локальная платформа Windows;
+Linux-упаковку и фактический деплой Vercel эта проверка не заменяет.
+
+Чтобы обновить Preview исходниками из локальной `feature/yandex-storage`,
+в корне проекта, уже связанного с нужным Vercel-проектом, выполнить:
+
+```powershell
+npx vercel deploy --environment=preview --force --meta githubDeployment=1 --meta githubCommitRef=feature/yandex-storage
+```
+
+`--force` исключает старый build cache, а metadata сохраняет привязку к ветке для
+её Preview env. Команда создаёт новый Preview из локальных файлов и не требует
+`git push`. Она не выполнялась в рамках исправления.
+
+Источники: [исходник jwks-rsa](https://github.com/auth0/node-jwks-rsa/blob/master/src/utils.js),
+[поддерживаемые версии jose](https://github.com/panva/jose/security),
+[завершение поддержки jose 5](https://github.com/panva/jose/discussions/790),
+[параметры Vercel deploy](https://vercel.com/docs/cli/deploy).
+
 ## Что ещё не подтверждено
 
 - Реальные значения и scope переменных в Vercel, выбранный Firebase-проект.
