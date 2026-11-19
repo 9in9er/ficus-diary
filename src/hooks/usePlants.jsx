@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useEffect, useRef, useState } from 'react';
+import { collection, addDoc, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { DAY_IN_MS, TRASH_RETENTION_DAYS, getLocalDate } from '../utils/plantDates';
+import { getLocalDate } from '../utils/plantDates';
 import { getWishlistDetails } from '../utils/wishlist';
+import { photoRequest, savePlantPhoto } from '../services/plantPhotos';
 
 const CARE_LOG_LIMIT = 8;
 
@@ -11,6 +12,7 @@ export function usePlants(user) {
   const [loadingPlants, setLoadingPlants] = useState(true);
   const [plantsError, setPlantsError] = useState('');
   const userId = user?.uid;
+  const newPhotoPlantIds = useRef(new WeakMap());
 
   useEffect(() => {
     setPlants([]);
@@ -30,28 +32,25 @@ export function usePlants(user) {
     });
   }, [userId]);
 
-  useEffect(() => {
-    const clearTrash = async () => {
-      for (const plant of plants) {
-        if (!plant.deletedAt) continue;
-        const daysInTrash = (Date.now() - new Date(plant.deletedAt)) / DAY_IN_MS;
-        if (daysInTrash >= TRASH_RETENTION_DAYS) {
-          await deleteDoc(doc(db, 'plants', plant.id));
-        }
-      }
-    };
-    clearTrash().catch(() => {
-      setPlantsError('Не удалось очистить старые записи в корзине. Попробуйте обновить страницу позже.');
-    });
-  }, [plants]);
-
   const updatePlant = (id, changes) => updateDoc(doc(db, 'plants', id), changes);
+
+  const saveWithPhoto = (id, draft, fields, creating = false, isWishlisted = false) => {
+    let plantId = id;
+    if (creating) {
+      const previous = newPhotoPlantIds.current.get(draft.photoBlob);
+      plantId = previous?.uid === userId ? previous.id : doc(collection(db, 'plants')).id;
+      newPhotoPlantIds.current.set(draft.photoBlob, { uid: userId, id: plantId });
+    }
+    return savePlantPhoto(user, { plantId, blob: draft.photoBlob, fields, creating, isWishlisted });
+  };
 
   const createPlant = async (draft) => {
     if (!draft.name.trim() || !userId) throw new Error('Не заполнены данные растения или аккаунта.');
+    if (draft.photoBlob) return saveWithPhoto(null, draft, {
+      name: draft.name, acquiredAt: draft.acquiredAt || '',
+    }, true);
     await addDoc(collection(db, 'plants'), {
       name: draft.name,
-      photo: draft.photo,
       acquiredAt: draft.acquiredAt,
       wateringLog: [], fertilizingLog: [], notes: [],
       userId,
@@ -60,23 +59,26 @@ export function usePlants(user) {
     });
   };
 
-  const savePlant = (id, draft) => updatePlant(id, {
-    name: draft.name, acquiredAt: draft.acquiredAt, photo: draft.photo,
-  });
+  const savePlant = (id, draft) => {
+    const fields = { name: draft.name, acquiredAt: draft.acquiredAt };
+    return draft.photoBlob ? saveWithPhoto(id, draft, fields) : updatePlant(id, fields);
+  };
 
   const createWish = async (draft) => {
     if (!draft.name.trim() || !userId) throw new Error('Не заполнены данные растения или аккаунта.');
+    const fields = { name: draft.name.trim(), ...getWishlistDetails(draft) };
+    if (draft.photoBlob) return saveWithPhoto(null, draft, fields, true, true);
     await addDoc(collection(db, 'plants'), {
-      name: draft.name.trim(), photo: draft.photo,
-      ...getWishlistDetails(draft),
+      ...fields,
       isWishlisted: true, userId, createdAt: new Date().toISOString(),
       deletedAt: null, hidden: false, pinned: false,
     });
   };
 
-  const saveWish = (id, draft) => updatePlant(id, {
-    name: draft.name.trim(), photo: draft.photo, ...getWishlistDetails(draft),
-  });
+  const saveWish = (id, draft) => {
+    const fields = { name: draft.name.trim(), ...getWishlistDetails(draft) };
+    return draft.photoBlob ? saveWithPhoto(id, draft, fields) : updatePlant(id, fields);
+  };
 
   const appendCareEntry = (id, field, log) => {
     const entries = Array.isArray(log) ? log : [];
@@ -110,7 +112,7 @@ export function usePlants(user) {
       deletedAt: new Date().toISOString(), hidden: false, pinned: false,
     }),
     restorePlant: (id) => updatePlant(id, { deletedAt: null }),
-    permanentlyDeletePlant: (id) => deleteDoc(doc(db, 'plants', id)),
+    permanentlyDeletePlant: (id) => photoRequest(user, { action: 'delete', plantId: id }),
     handleWaterPlant: (id, log) => appendCareEntry(id, 'wateringLog', log),
     handleFertilizePlant: (id, log) => appendCareEntry(id, 'fertilizingLog', log),
     deleteWateringEntry: (id, log, entry) => deleteCareEntry(id, 'wateringLog', log, entry),
