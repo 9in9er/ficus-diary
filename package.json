@@ -2,22 +2,36 @@
   "name": "ficus-diary",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1173.0",
+    "@aws-sdk/s3-request-presigner": "^3.1173.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "firebase": "^12.6.0",
+    "firebase-admin": "^14.5.1",
+    "patch-package": "8.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.14.0",
     "react-scripts": "5.0.1",
     "sass": "^1.95.1",
-    "sass-rem": "^4.0.1"
+    "sass-rem": "^4.0.1",
+    "sharp": "^0.35.5"
   },
   "scripts": {
+    "postinstall": "patch-package --error-on-fail",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:server": "node --no-experimental-require-module --test tests/server/*.test.cjs",
+    "test:rules": "firebase emulators:exec --config firebase.rules-test.json --project demo-ficus-diary-rules --only firestore \"node --test --test-concurrency=1 tests/firestore/*.test.cjs\"",
+    "migrate:photos": "node --env-file-if-exists=.env.local scripts/migrate-photos.cjs",
+    "backup:firestore": "node --env-file-if-exists=.env.local scripts/backup-firestore.cjs",
+    "verify:firestore-backup": "node scripts/verify-firestore-backup.cjs",
     "lint": "eslint src --ext .js,.jsx,.ts",
     "eject": "react-scripts eject"
   },
@@ -43,5 +57,14 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "overrides": {
+    "firebase-admin": {
+      "jwks-rsa": "4.1.0"
+    }
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase-tools": "^15.37.0"
   }
 }

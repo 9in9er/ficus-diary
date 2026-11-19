@@ -3,6 +3,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import PlantsPage from './PlantsPage';
 import usePlantActions from '../hooks/usePlantActions';
+import { photoRequest } from '../services/plantPhotos';
+
+jest.mock('../services/plantPhotos', () => ({ photoRequest: jest.fn(), savePlantPhoto: jest.fn() }));
 
 jest.mock('../firebase', () => ({ db: {} }));
 jest.mock('../hooks/useAuth', () => {
@@ -67,6 +70,7 @@ beforeEach(() => {
   });
   updateDoc.mockResolvedValue();
   deleteDoc.mockResolvedValue();
+  photoRequest.mockResolvedValue({ deleted: true });
 });
 
 test.each([
@@ -77,7 +81,7 @@ test.each([
   ['hiding', 'iconEmojiEye iconEmojiEyeOff', updateDoc, 'Не удалось изменить видимость растения.', 'menu'],
   ['moving to trash', 'iconEmojiWastebasket', updateDoc, 'Не удалось переместить растение в корзину.', 'menu'],
   ['restoring', 'Восстановить растение', updateDoc, 'Не удалось восстановить растение.', 'trash'],
-  ['permanent deletion', 'Удалить растение навсегда', deleteDoc, 'Не удалось удалить растение навсегда.', 'trash'],
+  ['permanent deletion', 'Удалить растение навсегда', photoRequest, 'Не удалось удалить растение навсегда.', 'trash'],
   ['note deletion', '✖', updateDoc, 'Не удалось удалить заметку.', null],
   ['watering entry deletion', /^Удалить запись: последний полив,/, updateDoc, 'Не удалось удалить запись полива.', 'Последний полив:'],
   ['fertilizing entry deletion', /^Удалить запись: последнее удобрение,/, updateDoc, 'Не удалось удалить запись удобрения.', 'Последнее удобрение:'],
