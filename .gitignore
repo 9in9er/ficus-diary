@@ -28,3 +28,16 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+!.env.example
+.vercel/
+.npm-cache/
+*service-account*.json
+*firebase-adminsdk*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local Firestore backups (contain private data and full photos).
+/backups/

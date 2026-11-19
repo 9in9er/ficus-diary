@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { formatDate, getDaysUntilDelete } from '../utils/plantDates';
+import { formatDate } from '../utils/plantDates';
 import WishlistDetails from './WishlistDetails';
+import PlantPhoto from './PlantPhoto';
 import WishlistForm from './WishlistForm';
 import ModalDialog from './ModalDialog';
 import { getWishlistDetails } from '../utils/wishlist';
@@ -47,9 +48,9 @@ export default function WishlistCard({ plant, actions, editor, isTrash, isPendin
             </>}
           </div>
           <h3 className='wishlistName'>{plant.name}</h3>
-          {plant.photo && <img className='wishlistPhoto' src={plant.photo} alt={plant.name} />}
+          <PlantPhoto plant={plant} className='wishlistPhoto' />
           <WishlistDetails plant={plant} />
-          {isTrash && <p className='wishlistHint'>Удалено: {formatDate(plant.deletedAt)}. До удаления осталось: {getDaysUntilDelete(plant.deletedAt)} дн.</p>}
+          {isTrash && <p className='wishlistHint'>Удалено: {formatDate(plant.deletedAt)}. Автоматическое удаление отключено.</p>}
         </>}
       </div>
       {confirmDelete && <ModalDialog labelledBy={`deleteWish-${plant.id}`} onClose={() => setConfirmDelete(false)} isBusy={isPending}>

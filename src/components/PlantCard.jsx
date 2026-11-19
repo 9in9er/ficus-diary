@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import useAutoResizeTextarea from '../hooks/useAutoResizeTextarea';
-import { formatDate, getDaysUntilDelete } from '../utils/plantDates';
+import { formatDate } from '../utils/plantDates';
 import PlantCareHistory from './PlantCareHistory';
 import '../styles/PlantCard.scss';
 
@@ -18,6 +18,7 @@ import dotsMenuIcon from '../i/icons/dots-menu.svg';
 import closeIcon from '../i/icons/close.svg';
 
 import PlantForm from './PlantForm';
+import PlantPhoto from './PlantPhoto';
 
 function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash = false, isPending, runAction }) {
   const {
@@ -128,13 +129,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
               <h3 className='plantName'>{plant.name}</h3>
               <div className="aboutPlantWrap">
                 <div className='photoInfo'>
-                  {plant.photo && (
-                    <img
-                      className='plantPhoto'
-                      src={plant.photo}
-                      alt={plant.name}
-                    />
-                  )}
+                  <PlantPhoto plant={plant} className='plantPhoto' />
 
                   <PlantCareHistory
                     plantId={plant.id}
@@ -226,11 +221,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                             {formatDate(plant.deletedAt)}
                         </p>
 
-                        <p>
-                            До удаления осталось:{' '}
-                              <span>{getDaysUntilDelete(plant.deletedAt)}
-                            дн.</span>
-                        </p>
+                        <p>Автоматическое удаление отключено.</p>
 
                     </div>
                   )}

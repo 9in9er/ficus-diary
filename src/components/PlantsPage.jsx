@@ -75,7 +75,7 @@ function PlantsPage({ isWishlist = false }) {
             addForm.resetDraft();
             setIsAddModalOpen(false);
         } catch (error) {
-            setAddPlantError(error.message === 'Укажите корректные ссылки на сайты, каждую с новой строки.'
+            setAddPlantError(error.photoError || error.message === 'Укажите корректные ссылки на сайты, каждую с новой строки.'
                 ? error.message : 'Не удалось сохранить растение. Попробуйте ещё раз.');
         } finally {
             setIsAddingPlant(false);
@@ -155,7 +155,7 @@ function PlantsPage({ isWishlist = false }) {
                 {pendingPlantIds.size > 0 && <p role='status'>Сохраняем изменения…</p>}
                 {isWishlist && acquiredWishName && <p role='status'>«{acquiredWishName}» теперь в разделе «Мои растения».</p>}
 
-                {showTrash && isWishlist && <p className='wishlistHint'>Удалённые желания хранятся в корзине 30 дней. За это время их можно восстановить.</p>}
+                {showTrash && isWishlist && <p className='wishlistHint'>Удалённые желания остаются в корзине до окончательного удаления. Их можно восстановить.</p>}
                 <div className={plantListClassName} role='list' aria-label={isWishlist ? 'Вишлист' : 'Растения'}>
                     {emptyMessage && <p className='startMessage' role='status'>{emptyMessage}</p>}
                     {visiblePlants.map((plant) => (

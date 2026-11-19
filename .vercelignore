@@ -1,0 +1,19 @@
+# A custom ignore file must also retain the sensitive/default exclusions.
+.git/
+node_modules/
+.env
+.env.*
+!.env.example
+.vercel/
+.npm-cache/
+build/
+dist/
+out/
+*.log
+*service-account*.json
+*firebase-adminsdk*.json
+*.pem
+*.key
+*.p12
+*.pfx
+backups/
