@@ -108,6 +108,22 @@ test('failed Firestore commit keeps previous photo and supports retry', async ()
   assert.ok(f.records.get('plants/plant-1').photoKey);
 });
 
+test('key-only wishlist replacement keeps wishlist status and never recreates legacy photo', async () => {
+  const oldKey = `${storage.plantPrefix('owner', 'plant-1')}photos/00000000-0000-0000-0000-000000000000.webp`;
+  const original = { userId: 'owner', name: 'Wish', isWishlisted: true, photoKey: oldKey,
+    deletedAt: null, description: 'old', price: '', links: [] };
+  const f = fixture({ 'plants/plant-1': original });
+  const read = await f.service('owner', { action: 'read', plantId: 'plant-1' });
+  assert.ok(read.url);
+  const ticket = await f.service('owner', upload);
+  const wishFields = { name: 'Updated wish', description: 'new', price: '100', links: ['https://example.invalid/plant'] };
+  const result = await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId,
+    fields: wishFields, isWishlisted: false }); // Existing documents determine their own list.
+  assert.deepEqual(f.records.get('plants/plant-1'), { ...original, ...wishFields, photoKey: result.photoKey });
+  assert.equal(Object.hasOwn(f.records.get('plants/plant-1'), 'photo'), false);
+  assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
+});
+
 test('rejects invalid sizes, expired tickets, trashed plants and concurrent photo edits', async () => {
   const f = fixture({ 'plants/plant-1': legacy });
   for (const size of [0, -1, 5.5, storage.MAX_PHOTO_BYTES + 1]) await assert.rejects(f.service('owner', { ...upload, size }), { status: 400 });
