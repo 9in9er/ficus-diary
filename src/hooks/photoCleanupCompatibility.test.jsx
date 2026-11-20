@@ -52,12 +52,15 @@ test('wishlist editing resolves a preview by photoKey even when photo is complet
   expect(photoRequest).toHaveBeenCalledWith(mockUser, { action: 'read', plantId: cleanedWish.id });
 });
 
-test('wishlist editing retains legacy preview support without any photoKey or storage read', async () => {
-  const { photoKey, ...legacyWish } = cleanedWish;
-  render(<WishlistHarness plant={{ ...legacyWish, photo: 'data:image/png;base64,AA==' }} />);
-  await screen.findByRole('img', { name: cleanedWish.name });
+test('a wishlist plant without a photo renders and opens its editor without a broken preview or storage read', () => {
+  const { photoKey, ...wishWithoutPhoto } = cleanedWish;
+  render(<WishlistHarness plant={wishWithoutPhoto} />);
+  expect(screen.getByRole('listitem', { name: cleanedWish.name })).toBeInTheDocument();
+  expect(screen.queryByRole('img', { name: cleanedWish.name })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
-  expect(screen.getByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', 'data:image/png;base64,AA==');
+  expect(screen.getByLabelText('Название растения')).toHaveValue(cleanedWish.name);
+  expect(screen.queryByRole('img', { name: 'Предпросмотр фотографии' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(photoRequest).not.toHaveBeenCalled();
 });
 
