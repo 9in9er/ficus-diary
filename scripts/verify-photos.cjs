@@ -1,19 +1,21 @@
 #!/usr/bin/env node
-// Audit only: Firestore queries and S3 HEAD/GET. No migration or cleanup entry points.
+// Read-only integrity check: Firestore queries and S3 HEAD/GET.
 const { createHash } = require('node:crypto');
 const { S3Client, HeadObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const sharp = require('sharp');
 const { getFirebase } = require('../server/firebase.cjs');
 const { ownsPhotoKey, MAX_PHOTO_BYTES } = require('../server/storage.cjs');
 
-const HELP = `Read-only photo migration audit (Node.js 24; configuration from .env.local).
+const HELP = `Read-only photo integrity check (Node.js 24; configuration from .env.local).
   npm.cmd run verify:photos -- --project PROJECT_ID
-    [--expect-photo-keys 264] [--expect-trash-base64 46]
+    [--expect-photo-keys COUNT]
 Scans ALL top-level plants, all owners, wishlist and trash, in pages of 100.
 Downloads each valid photoKey using HEAD + conditional GET and fully decodes WebP.
 No Firestore writes, uploads, deletions, signed URLs or local image files.
 Exit codes: 0 = complete with no errors/problems; 1 = errors/incomplete;
-2 = potential problems only. Existing photo + photoKey and trash base64 are informational.`;
+2 = potential problems only. Legacy photo fields and deletion locks are reported as problems.
+Plants without photographs and empty collections are valid. An optional expected key count
+can detect a change from a known baseline.`;
 
 class AuditError extends Error {
   constructor(code) { super(code); this.code = code; }
@@ -22,8 +24,7 @@ class AuditError extends Error {
 function parseArgs(args) {
   if (args.length === 1 && args[0] === '--help') return { help: true };
   const options = {};
-  const names = { '--project': 'project', '--expect-photo-keys': 'expectPhotoKeys',
-    '--expect-trash-base64': 'expectTrashBase64' };
+  const names = { '--project': 'project', '--expect-photo-keys': 'expectPhotoKeys' };
   for (let i = 0; i < args.length; i += 2) {
     const name = Object.hasOwn(names, args[i]) ? names[args[i]] : undefined;
     const value = args[i + 1];
@@ -132,7 +133,7 @@ async function verifyObject({ client, bucket, key, timeoutMs = 60_000 }) {
     if (total !== head.ContentLength) throw new AuditError('OBJECT_SIZE_MISMATCH');
     const bytes = Buffer.concat(chunks, total);
     const checksum = createHash('sha256').update(bytes).digest('hex');
-    // Migration uploads have this metadata. Older ordinary uploads may legitimately lack it.
+    // Validate checksum metadata when present; ordinary uploads may legitimately lack it.
     for (const metadata of [head.Metadata, object.Metadata]) {
       if (metadata && Object.hasOwn(metadata, 'sha256') && metadata.sha256 !== checksum) {
         throw new AuditError('CHECKSUM_MISMATCH');
@@ -151,7 +152,6 @@ async function verifyObject({ client, bucket, key, timeoutMs = 60_000 }) {
 const validPlantId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
 const safePlantId = (id) => validPlantId(id) ? id
   : `invalid-id-sha256:${createHash('sha256').update(String(id)).digest('hex')}`;
-const hasBase64 = (plant) => typeof plant.photo === 'string' && /^data:image\/[^;,]+;base64,/.test(plant.photo);
 const hasKey = (plant) => Object.hasOwn(plant, 'photoKey') && plant.photoKey !== null;
 
 async function* plantSnapshots(db) {
@@ -170,9 +170,8 @@ async function* plantSnapshots(db) {
 async function runVerification({ db, options, connection, onResult = () => {} }) {
   const report = { mode: 'read-only', project: options.project, scope: 'all-plants-all-owners',
     startedAt: new Date().toISOString(), totalDocuments: 0, photoKeyFields: 0, withPhotoKey: 0,
-    photoAndPhotoKeyFields: 0, base64AndPhotoKey: 0, withoutPhotoKey: 0,
-    trashPlants: 0, trashWithBase64: 0, trashWithBase64WithoutPhotoKey: 0,
-    activeBase64WithoutPhotoKey: 0, attemptedObjects: 0, verified: 0, verifiedBytes: 0,
+    withoutPhotoKey: 0, trashPlants: 0, legacyPhotoFields: 0,
+    attemptedObjects: 0, verified: 0, verifiedBytes: 0,
     failedPhotoKeys: 0, errors: 0, potentialProblems: 0, errorsByCode: {}, problemsByCode: {},
     scanComplete: false, checksPassed: false, issues: [] };
   const problem = (code) => {
@@ -187,20 +186,15 @@ async function runVerification({ db, options, connection, onResult = () => {} })
       let keyed = false;
       try {
         const plant = snapshot.data();
-        const base64 = hasBase64(plant);
         keyed = hasKey(plant);
         const trash = Boolean(plant.deletedAt);
         if (Object.hasOwn(plant, 'photoKey')) report.photoKeyFields += 1;
-        if (Object.hasOwn(plant, 'photo') && Object.hasOwn(plant, 'photoKey')) report.photoAndPhotoKeyFields += 1;
         if (keyed) report.withPhotoKey += 1;
         else report.withoutPhotoKey += 1;
-        if (base64 && keyed) report.base64AndPhotoKey += 1;
         if (trash) report.trashPlants += 1;
-        if (trash && base64) report.trashWithBase64 += 1;
-        if (trash && base64 && !keyed) report.trashWithBase64WithoutPhotoKey += 1;
-        if (!trash && base64 && !keyed) {
-          report.activeBase64WithoutPhotoKey += 1;
-          warnings.push('ACTIVE_BASE64_WITHOUT_PHOTO_KEY');
+        if (Object.hasOwn(plant, 'photo')) {
+          report.legacyPhotoFields += 1;
+          warnings.push('LEGACY_PHOTO_FIELD');
         }
         if (plant._photoDeleting) warnings.push('PHOTO_DELETION_IN_PROGRESS');
         for (const code of warnings) problem(code);
@@ -238,17 +232,9 @@ async function runVerification({ db, options, connection, onResult = () => {} })
     report.errorsByCode.FIRESTORE_SCAN_FAILED = 1;
     report.issues.push({ status: 'error', code: 'FIRESTORE_SCAN_FAILED' });
   }
-  if (report.scanComplete) {
-    if (!report.withPhotoKey) problem('NO_PHOTO_KEYS');
-    for (const [option, field, code] of [
-      ['expectPhotoKeys', 'withPhotoKey', 'PHOTO_KEY_COUNT_MISMATCH'],
-      ['expectTrashBase64', 'trashWithBase64', 'TRASH_BASE64_COUNT_MISMATCH'],
-    ]) {
-      if (options[option] !== undefined) {
-        report[option] = options[option];
-        if (report[field] !== options[option]) problem(code);
-      }
-    }
+  if (report.scanComplete && options.expectPhotoKeys !== undefined) {
+    report.expectPhotoKeys = options.expectPhotoKeys;
+    if (report.withPhotoKey !== options.expectPhotoKeys) problem('PHOTO_KEY_COUNT_MISMATCH');
   }
   report.checksPassed = report.scanComplete && report.errors === 0 && report.potentialProblems === 0;
   report.completedAt = new Date().toISOString();

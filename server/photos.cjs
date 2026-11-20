@@ -2,9 +2,6 @@ const { randomUUID } = require('node:crypto');
 const { getFirebase } = require('./firebase.cjs');
 const storage = require('./storage.cjs');
 
-// Permanent deletion still requires explicit opt-in through the server env flag.
-const PERMANENT_DELETE_RELEASE_ENABLED = true;
-
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 const validId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
 
@@ -169,8 +166,7 @@ function createHandler({ getServices = getFirebase, files = storage } = {}) {
       if (!body || typeof body !== 'object' || Array.isArray(body)) fail(400, 'Некорректный запрос.');
       if (Buffer.byteLength(JSON.stringify(body)) > 32768) fail(413, 'Слишком большой запрос.');
       const service = createPhotoService({ db, files,
-        deletionEnabled: PERMANENT_DELETE_RELEASE_ENABLED
-          && process.env.ENABLE_PERMANENT_PLANT_DELETE === 'true' });
+        deletionEnabled: process.env.ENABLE_PERMANENT_PLANT_DELETE === 'true' });
       return res.status(200).json(await service(token.uid, body));
     } catch (error) {
       // Never log credentials, tokens, signed URLs, request bodies or legacy photos.
