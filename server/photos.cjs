@@ -2,9 +2,8 @@ const { randomUUID } = require('node:crypto');
 const { getFirebase } = require('./firebase.cjs');
 const storage = require('./storage.cjs');
 
-// First Object Storage release: an accidental Vercel env value must not enable
-// irreversible deletion. Lift this lock only in a separately reviewed release.
-const PERMANENT_DELETE_RELEASE_ENABLED = false;
+// Permanent deletion still requires explicit opt-in through the server env flag.
+const PERMANENT_DELETE_RELEASE_ENABLED = true;
 
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 const validId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
