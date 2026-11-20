@@ -168,6 +168,64 @@ test('deletion is disabled by default; enabled deletion requires trash and locks
 
 module.exports = { fixture };
 
+test('external URLs create collection and wishlist records without any storage calls', async () => {
+  for (const isWishlisted of [false, true]) {
+    const f = fixture();
+    const photo = 'https://example.com/image?id=123&format=webp';
+    const linkFields = isWishlisted ? { name: 'Wish', description: '', price: '', links: [] } : fields;
+    assert.deepEqual(await f.service('owner', { action: 'link', plantId: 'plant-1', creating: true,
+      isWishlisted, photo: ` ${photo} `, fields: linkFields }), { photo });
+    const saved = f.records.get('plants/plant-1');
+    assert.equal(saved.photo, photo);
+    assert.equal(saved.userId, 'owner');
+    assert.equal(saved.isWishlisted, isWishlisted);
+    assert.equal('photoKey' in saved, false);
+    for (const method of ['signUpload', 'readUrl', 'validateUpload', 'storePhoto', 'deletePlantFiles']) {
+      assert.equal(f.files[method].mock.callCount(), 0);
+    }
+  }
+});
+
+test('replaces stored and legacy photos with a URL, then permits replacing the URL with a file', async () => {
+  const oldKey = `${storage.plantPrefix('owner', 'plant-1')}photos/00000000-0000-0000-0000-000000000000.webp`;
+  for (const previous of [legacy, { ...legacy, photoKey: oldKey }]) {
+    const f = fixture({ 'plants/plant-1': previous });
+    const photo = 'http://example.com/image/123';
+    await f.service('owner', { action: 'link', plantId: 'plant-1', photo, fields });
+    assert.equal(f.records.get('plants/plant-1').photo, photo);
+    assert.equal(f.records.get('plants/plant-1').photoKey, null);
+    const ticket = await f.service('owner', upload);
+    await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields });
+    assert.ok(f.records.get('plants/plant-1').photoKey);
+    assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
+  }
+});
+
+test('URL updates preserve wishlist details and list membership from the existing record', async () => {
+  const f = fixture({ 'plants/plant-1': { ...legacy, isWishlisted: true } });
+  const wishFields = { name: 'Wish', description: 'Leaves', price: '500', links: ['https://example.com/shop'] };
+  await f.service('owner', { action: 'link', plantId: 'plant-1', photo: 'https://example.com/image', fields: wishFields, isWishlisted: false });
+  assert.deepEqual(f.records.get('plants/plant-1'), { ...legacy, ...wishFields,
+    isWishlisted: true, photo: 'https://example.com/image', photoKey: null });
+});
+
+test('URL operations reject invalid protocols, ownership violations, deleted plants, and duplicate creates', async () => {
+  const f = fixture({ 'plants/plant-1': legacy });
+  const body = { action: 'link', plantId: 'plant-1', fields, photo: 'https://example.com/image' };
+  for (const photo of ['', null, {}, 'example.com/photo', 'https://', 'ftp://example.com/image', 'data:image/png;base64,AA==', 'javascript:alert(1)']) {
+    await assert.rejects(f.service('owner', { ...body, photo }), { status: 400 });
+  }
+  await assert.rejects(f.service('intruder', body), { status: 403 });
+  await assert.rejects(f.service('owner', { ...body, creating: true }), { status: 409 });
+  await assert.rejects(f.service('owner', { ...body, plantId: 'missing' }), { status: 404 });
+  assert.deepEqual(f.records.get('plants/plant-1'), legacy);
+  for (const extra of [{ deletedAt: '2026-11-20' }, { _photoDeleting: true }]) {
+    const locked = fixture({ 'plants/plant-1': { ...legacy, ...extra } });
+    await assert.rejects(locked.service('owner', body), { status: 409 });
+    assert.deepEqual(locked.records.get('plants/plant-1'), { ...legacy, ...extra });
+  }
+});
+
 test('handler requires exact env opt-in and preserves permanent deletion safeguards', async (t) => {
   const previous = process.env.ENABLE_PERMANENT_PLANT_DELETE;
   const trashed = { ...legacy, deletedAt: '2026-11-20',

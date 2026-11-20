@@ -36,6 +36,31 @@ test('editing metadata never rewrites old base64 or photoKey', async () => {
   expect(savePlantPhoto).not.toHaveBeenCalled();
 });
 
+test.each([
+  ['createPlant', true, false], ['savePlant', false, false],
+  ['createWish', true, true], ['saveWish', false, false],
+])('%s saves an external URL through the protected API without uploading a file', async (action, creating, isWishlisted) => {
+  const { result } = renderHook(() => usePlants(user));
+  const draft = { name: 'Ficus', acquiredAt: '', description: '', price: '', links: '',
+    photoSource: 'url', photoUrl: ' https://example.com/image?id=123 ', photoKey: 'old-key' };
+  const args = creating ? [draft] : ['plant', draft];
+  await result.current.actions[action](...args);
+  expect(photoRequest).toHaveBeenCalledWith(user, expect.objectContaining({
+    action: 'link', plantId: creating ? 'new-id' : 'plant', creating, isWishlisted,
+    photo: 'https://example.com/image?id=123', fields: expect.objectContaining({ name: 'Ficus' }),
+  }));
+  expect(addDoc).not.toHaveBeenCalled();
+  expect(updateDoc).not.toHaveBeenCalled();
+  expect(savePlantPhoto).not.toHaveBeenCalled();
+});
+
+test('invalid URL drafts never reach Firestore or the photo API', async () => {
+  const { result } = renderHook(() => usePlants(user));
+  await expect(result.current.actions.createPlant({ name: 'Ficus', photoSource: 'url', photoUrl: 'javascript:alert(1)' })).rejects.toThrow('http://');
+  expect(photoRequest).not.toHaveBeenCalled();
+  expect(addDoc).not.toHaveBeenCalled();
+});
+
 test('opening old trash never automatically deletes records; permanent deletion uses API', async () => {
   onSnapshot.mockImplementation((query, cb) => {
     cb({ docs: [{ id: 'old-trash', data: () => ({ name: 'Ficus', deletedAt: '2020-01-01', photo: 'legacy' }) }] });

@@ -7,6 +7,7 @@ export default function usePlantPhoto(plant) {
   const [resolved, setResolved] = useState(null);
   const [failed, setFailed] = useState(false);
   const [revision, setRevision] = useState(0);
+  useEffect(() => { setFailed(false); }, [plant.photo, plant.photoKey]);
   useEffect(() => {
     if (!plant.photoKey || !user) return undefined;
     let cancelled = false;
@@ -33,7 +34,8 @@ export default function usePlantPhoto(plant) {
   return {
     src: (plant.photoKey && current && !failed && resolved.url) || plant.photo || null,
     failed,
-    retry: () => setRevision((value) => value + 1),
+    revision,
+    retry: () => { setFailed(false); setRevision((value) => value + 1); },
     onError: () => setFailed(true),
   };
 }
