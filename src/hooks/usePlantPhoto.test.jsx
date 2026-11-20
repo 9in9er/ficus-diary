@@ -21,6 +21,26 @@ test('obsolete photo data is ignored when photoKey is absent', () => {
   expect(photoRequest).not.toHaveBeenCalled();
 });
 
+test('HTTP image URLs render directly without a storage request and can retry an image error', () => {
+  const url = 'https://example.com/image?id=123';
+  const { result } = renderHook(() => usePlantPhoto({ id: 'plant', photo: url }));
+  expect(result.current.src).toBe(url);
+  expect(photoRequest).not.toHaveBeenCalled();
+  act(() => result.current.onError());
+  expect(result.current.failed).toBe(true);
+  act(() => result.current.retry());
+  expect(result.current.failed).toBe(false);
+  expect(result.current.src).toBe(url);
+  expect(photoRequest).not.toHaveBeenCalled();
+});
+
+test('a stored photo never falls back to an old external URL after file replacement', async () => {
+  photoRequest.mockRejectedValue(new Error('offline'));
+  const { result } = renderHook(() => usePlantPhoto({ id: 'plant', photoKey: 'new-file', photo: 'https://example.com/old-image' }));
+  await waitFor(() => expect(result.current.failed).toBe(true));
+  expect(result.current.src).toBeNull();
+});
+
 test('a failed signed URL request has no image source and permits retry', async () => {
   const plant = { id: 'plant', photoKey: 'key', photo: 'obsolete' };
   photoRequest.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ url: 'https://storage.invalid/signed', expiresIn: 600 });
