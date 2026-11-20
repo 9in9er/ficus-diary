@@ -18,7 +18,6 @@
 | `src/hooks/usePlants.jsx`, `updatePlant` | Единственный клиентский `updateDoc`; через него идут все перечисленные ниже изменения |
 | `server/photos.cjs`, `commit` | Firebase Admin `runTransaction`: `tx.create` растения/желания с фото или `tx.update` при замене фото |
 | `server/photos.cjs`, `delete` | Две Firebase Admin транзакции: `tx.update({_photoDeleting: true})`, затем `tx.delete` после удаления файлов |
-| `scripts/migrate-photos.cjs`, `migratePlant` | Отдельная Firebase Admin транзакция с `tx.update({photoKey})`; скрипт автоматически не вызывается |
 
 Клиентских `setDoc`, `deleteDoc`, `runTransaction` и `writeBatch` в рабочем
 приложении больше нет. В тестах эти вызовы используются для проверки запретов.
