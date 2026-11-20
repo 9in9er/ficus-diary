@@ -164,6 +164,17 @@ test('bulk audit verifies 262 migrated and 2 older photos, includes all owners/w
   assert.equal(queries[1].cursor, Object.keys(records).sort()[99]);
 });
 
+test('audit accepts historical migration keys without regenerating them', async () => {
+  const photoKey = `${plantPrefix('owner', 'plant-1')}photos/b3d652ac-7074-4921-6e0d-7c6722eeac98.webp`;
+  const { report, commands } = await audit({ 'plant-1': plant('plant-1', { photoKey, photo: null }) });
+  assert.equal(report.verified, 1);
+  assert.equal(report.checksPassed, true);
+  assert.equal(reportExitCode(report), 0);
+  assert.deepEqual(commands.map((command) => [command.constructor.name, command.input.Key]), [
+    ['HeadObjectCommand', photoKey], ['GetObjectCommand', photoKey],
+  ]);
+});
+
 test('HEAD is followed by conditional GET and full WebP decoding; optional old-upload checksum is accepted', async () => {
   const files = await storageFixture({ head: { Metadata: undefined }, get: { Metadata: undefined } });
   const result = await verifyObject({ ...files.connection, key: keyFor('a') });
