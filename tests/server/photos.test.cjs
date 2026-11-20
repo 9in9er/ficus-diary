@@ -94,6 +94,50 @@ test('replacement preserves base64 and never deletes the old file', async () => 
   assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
 });
 
+test('existing migrated photos support owner reads, replacement and permanent deletion', async (t) => {
+  // Fixed historical key, including a non-RFC UUID variant, must remain usable without migration writers.
+  const filename = 'b3d652ac-7074-4921-6e0d-7c6722eeac98.webp';
+  const oldKey = `${storage.plantPrefix('owner', 'plant-1')}photos/${filename}`;
+  const original = { userId: 'owner', name: 'Migrated ficus', photoKey: oldKey, deletedAt: null };
+  const f = fixture({ 'plants/plant-1': original });
+  const read = { action: 'read', plantId: 'plant-1' };
+  assert.ok((await f.service('owner', read)).url);
+  assert.deepEqual(f.files.readUrl.mock.calls[0].arguments, [oldKey]);
+  await assert.rejects(f.service('intruder', read), { status: 403 });
+  assert.equal(f.files.readUrl.mock.callCount(), 1);
+
+  const ticket = await f.service('owner', upload);
+  assert.equal(f.records.get(`_photoUploads/${ticket.uploadId}`).previousKey, oldKey);
+  const replacement = await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields });
+  assert.notEqual(replacement.photoKey, oldKey);
+  assert.equal(f.records.get('plants/plant-1').photoKey, replacement.photoKey);
+  assert.equal(Object.hasOwn(f.records.get('plants/plant-1'), 'photo'), false);
+  assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
+
+  for (const photoKey of [oldKey, replacement.photoKey]) {
+    await t.test(`deletes trashed plant with ${photoKey === oldKey ? 'migrated' : 'replacement'} key`, async () => {
+      const trashed = fixture({ 'plants/plant-1': { ...original, photoKey, deletedAt: '2026-11-20' } });
+      const service = createPhotoService({ db: trashed.db, files: trashed.files, deletionEnabled: true });
+      const body = { action: 'delete', plantId: 'plant-1' };
+      await assert.rejects(service('intruder', body), { status: 403 });
+      assert.equal(trashed.files.deletePlantFiles.mock.callCount(), 0);
+      assert.deepEqual(await service('owner', body), { deleted: true });
+      assert.deepEqual(trashed.files.deletePlantFiles.mock.calls[0].arguments, ['owner', 'plant-1']);
+      assert.equal(trashed.records.has('plants/plant-1'), false);
+    });
+  }
+
+  for (const prefix of [storage.plantPrefix('intruder', 'plant-1'), storage.plantPrefix('owner', 'plant-2')]) {
+    const invalid = fixture({ 'plants/plant-1': { ...original, photoKey: `${prefix}photos/${filename}`, deletedAt: '2026-11-20' } });
+    const service = createPhotoService({ db: invalid.db, files: invalid.files, deletionEnabled: true });
+    await assert.rejects(service('owner', read), { status: 409 });
+    await assert.rejects(service('owner', { action: 'delete', plantId: 'plant-1' }), { status: 409 });
+    assert.equal(invalid.files.readUrl.mock.callCount(), 0);
+    assert.equal(invalid.files.deletePlantFiles.mock.callCount(), 0);
+    assert.equal(invalid.records.get('plants/plant-1')._photoDeleting, undefined);
+  }
+});
+
 test('failed Firestore commit keeps previous photo and supports retry', async () => {
   const f = fixture({ 'plants/plant-1': legacy });
   const ticket = await f.service('owner', upload);
