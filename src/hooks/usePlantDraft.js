@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { resizePlantPhoto } from '../utils/resizePlantPhoto';
 
-const emptyDraft = () => ({ name: '', acquiredAt: '', photo: null, photoBlob: null, description: '', price: '', links: '' });
+const emptyDraft = () => ({ id: null, name: '', acquiredAt: '', photoKey: null, photo: null, photoBlob: null, description: '', price: '', links: '' });
 
 export default function usePlantDraft() {
   const [draft, setDraft] = useState(emptyDraft);
@@ -14,8 +14,10 @@ export default function usePlantDraft() {
     setIsProcessingPhoto(false);
     setPhotoError('');
     setDraft(plant ? {
+      id: plant.id,
       name: plant.name,
       acquiredAt: plant.acquiredAt || '',
+      photoKey: plant.photoKey || null,
       photo: plant.photo || null,
       photoBlob: null,
       description: plant.description || '',
