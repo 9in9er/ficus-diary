@@ -35,6 +35,7 @@ beforeAll(() => {
   window.ResizeObserver = class { observe() {} disconnect() {} };
 });
 afterAll(() => { window.ResizeObserver = originalResizeObserver; });
+afterEach(() => { jest.restoreAllMocks(); });
 const snapshot = () => ({ docs: records.map(({ id, ...data }) => ({ id, data: () => data })) });
 
 function renderPage(path = '/wishlist') {
@@ -80,6 +81,8 @@ test('separates wishlist and collection, displays details and hides care filters
 });
 
 test('adds a wish with a photo, optional details and normalized links', async () => {
+  const createUrl = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:new-wish');
+  const revokeUrl = jest.spyOn(URL, 'revokeObjectURL');
   renderPage();
   fireEvent.click(screen.getByRole('button', { name: 'Добавить в вишлист' }));
   expect(screen.queryByLabelText('Дата появления')).not.toBeInTheDocument();
@@ -90,6 +93,8 @@ test('adds a wish with a photo, optional details and normalized links', async ()
   await act(async () => fireEvent.change(screen.getByLabelText('Фотография растения'), {
     target: { files: [new File(['photo'], 'plant.png', { type: 'image/png' })] },
   }));
+  expect(screen.getByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', 'blob:new-wish');
+  expect(createUrl).toHaveBeenCalledWith(expect.any(Blob));
   fireEvent.submit(screen.getByRole('form'));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   expect(savePlantPhoto).toHaveBeenCalledWith({ uid: 'user-1' }, expect.objectContaining({
@@ -100,6 +105,119 @@ test('adds a wish with a photo, optional details and normalized links', async ()
     },
   }));
   expect(addDoc).not.toHaveBeenCalled();
+  expect(revokeUrl).toHaveBeenCalledWith('blob:new-wish');
+});
+
+test('edits a key-only wish with a temporary-link preview and preserves the key without recreating photo', async () => {
+  const { photo, ...withoutPhoto } = wish;
+  records = [ordinary, { ...withoutPhoto, photoKey: 'published-key' }];
+  photoRequest.mockResolvedValue({ url: '/published-wish.webp', expiresIn: 600 });
+  renderPage();
+  await screen.findByRole('img', { name: wish.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+  expect(await screen.findByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', '/published-wish.webp');
+  expect(screen.getByRole('img', { name: 'Предпросмотр фотографии' })).toHaveClass('wishlistPhotoPreview');
+  fireEvent.change(screen.getByLabelText('Описание'), { target: { value: 'Changed without legacy photo' } });
+  fireEvent.submit(screen.getByRole('form'));
+  await waitFor(() => expect(screen.queryByRole('form')).not.toBeInTheDocument());
+  expect(updateDoc).toHaveBeenCalledWith({ id: wish.id }, {
+    name: wish.name, description: 'Changed without legacy photo', price: wish.price, links: wish.links,
+  });
+  const saved = records.find((record) => record.id === wish.id);
+  expect(saved.photoKey).toBe('published-key');
+  expect(saved).not.toHaveProperty('photo');
+  expect(savePlantPhoto).not.toHaveBeenCalled();
+});
+
+test('replaces a key-only photo, ignores late read results, and revokes local previews on replacement and save', async () => {
+  const { photo, ...withoutPhoto } = wish;
+  records = [ordinary, { ...withoutPhoto, photoKey: 'published-key' }];
+  const firstBlob = new Blob(['first'], { type: 'image/webp' });
+  const secondBlob = new Blob(['second'], { type: 'image/webp' });
+  resizePlantPhoto.mockResolvedValueOnce(firstBlob).mockResolvedValueOnce(secondBlob);
+  jest.spyOn(URL, 'createObjectURL').mockReturnValueOnce('blob:replacement-first').mockReturnValueOnce('blob:replacement-second');
+  const revoke = jest.spyOn(URL, 'revokeObjectURL');
+  photoRequest.mockResolvedValue({ url: '/original-wish.webp', expiresIn: 600 });
+  renderPage();
+  await screen.findByRole('img', { name: wish.name });
+  let finishOldRead;
+  photoRequest.mockImplementationOnce(() => new Promise((resolve) => { finishOldRead = resolve; }));
+  fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+  await act(async () => fireEvent.change(screen.getByLabelText('Фотография растения'), {
+    target: { files: [new File(['first'], 'first.png', { type: 'image/png' })] },
+  }));
+  expect(screen.getByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', 'blob:replacement-first');
+  await act(async () => finishOldRead({ url: '/late-old-wish.webp', expiresIn: 600 }));
+  expect(screen.getByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', 'blob:replacement-first');
+  await act(async () => fireEvent.change(screen.getByLabelText('Фотография растения'), {
+    target: { files: [new File(['second'], 'second.png', { type: 'image/png' })] },
+  }));
+  expect(revoke).toHaveBeenCalledWith('blob:replacement-first');
+  expect(screen.getByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', 'blob:replacement-second');
+  savePlantPhoto.mockImplementationOnce(async () => {
+    records = records.map((record) => record.id === wish.id ? { ...record, photoKey: 'replacement-key' } : record);
+    listener(snapshot());
+    return { photoKey: 'replacement-key' };
+  });
+  fireEvent.submit(screen.getByRole('form'));
+  await waitFor(() => expect(screen.queryByRole('form')).not.toBeInTheDocument());
+  expect(savePlantPhoto).toHaveBeenCalledWith({ uid: 'user-1' }, expect.objectContaining({
+    plantId: wish.id, blob: secondBlob, creating: false,
+  }));
+  const fields = savePlantPhoto.mock.calls[0][1].fields;
+  expect(fields).not.toHaveProperty('photo');
+  expect(fields).not.toHaveProperty('photoKey');
+  expect(revoke).toHaveBeenCalledWith('blob:replacement-second');
+  expect(records.find((record) => record.id === wish.id)).not.toHaveProperty('photo');
+  expect(records.find((record) => record.id === wish.id).isWishlisted).toBe(true);
+  expect(deleteDoc).not.toHaveBeenCalled();
+});
+
+test('cancelling a photo replacement restores the key-only stored preview and releases the local Blob URL', async () => {
+  const { photo, ...withoutPhoto } = wish;
+  records = [ordinary, { ...withoutPhoto, photoKey: 'published-key' }];
+  jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:cancelled-replacement');
+  const revoke = jest.spyOn(URL, 'revokeObjectURL');
+  photoRequest.mockResolvedValue({ url: '/published-wish.webp', expiresIn: 600 });
+  renderPage();
+  await screen.findByRole('img', { name: wish.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+  await act(async () => fireEvent.change(screen.getByLabelText('Фотография растения'), {
+    target: { files: [new File(['photo'], 'new.png', { type: 'image/png' })] },
+  }));
+  await screen.findByRole('img', { name: 'Предпросмотр фотографии' });
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+  expect(revoke).toHaveBeenCalledWith('blob:cancelled-replacement');
+  fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+  expect(await screen.findByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', '/published-wish.webp');
+  expect(savePlantPhoto).not.toHaveBeenCalled();
+});
+
+test('acquiring a key-only wish keeps its photograph in the collection without legacy photo', async () => {
+  const { photo, ...withoutPhoto } = wish;
+  records = [ordinary, { ...withoutPhoto, photoKey: 'published-key' }];
+  photoRequest.mockResolvedValue({ url: '/published-wish.webp', expiresIn: 600 });
+  renderPage();
+  await screen.findByRole('img', { name: wish.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Уже у меня' }));
+  await waitFor(() => expect(screen.queryByRole('listitem')).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole('link', { name: 'Мои растения' }));
+  const image = await screen.findByRole('img', { name: wish.name });
+  expect(image).toHaveAttribute('src', '/published-wish.webp');
+  const saved = records.find((record) => record.id === wish.id);
+  expect(saved.photoKey).toBe('published-key');
+  expect(saved).not.toHaveProperty('photo');
+  expect(saved.isWishlisted).toBe(false);
+  expect(savePlantPhoto).not.toHaveBeenCalled();
+  expect(deleteDoc).not.toHaveBeenCalled();
+});
+
+test('legacy wishlist photographs in trash remain visible without temporary-link requests', () => {
+  records = [ordinary, { ...wish, deletedAt: '2026-11-19T12:00:00Z' }];
+  renderPage();
+  fireEvent.click(screen.getByRole('button', { name: 'Корзина · 1' }));
+  expect(screen.getByRole('img', { name: wish.name })).toHaveAttribute('src', wish.photo);
+  expect(photoRequest).not.toHaveBeenCalled();
 });
 
 test('keeps an unsaved wish on error, rejects unsafe links, and allows retrying', async () => {
