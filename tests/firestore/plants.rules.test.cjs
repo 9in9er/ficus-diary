@@ -172,6 +172,31 @@ test('server photoKey does not block subsequent normal client edits', async () =
   assert.equal((await admin.collection('plants').doc('plant').get()).data().photoKey, key);
 });
 
+test('unchanged protected photo fields do not block metadata edits or drop historical fields', async () => {
+  const original = { ...legacy(), photoKey: key };
+  await seed(original);
+  await assertSucceeds(updateDoc(plantRef(), { name: 'Updated', photo: original.photo, photoKey: key }));
+  const stored = (await admin.collection('plants').doc('plant').get()).data();
+  assert.equal(stored.name, 'Updated');
+  assert.equal(stored.photo, original.photo);
+  assert.equal(stored.photoKey, key);
+  assert.equal(stored.historicalField, original.historicalField);
+});
+
+test('null photo is rejected on create and cannot be added to plants or wishes with or without photoKey', async () => {
+  const db = client();
+  for (const fields of [base(), wish()]) {
+    await assertFails(addDoc(collection(db, 'plants'), { ...fields, photo: null }));
+    for (const photoFields of [{}, { photoKey: key }]) {
+      await seed({ ...fields, ...photoFields });
+      await assertFails(updateDoc(plantRef(db), { name: 'Rejected', photo: null }));
+      const stored = (await admin.collection('plants').doc('plant').get()).data();
+      assert.equal(stored.name, fields.name);
+      assert.equal(Object.hasOwn(stored, 'photo'), false);
+    }
+  }
+});
+
 test('deletion lock prevents edits, unlocks and restores; even owner cannot delete a document directly', async () => {
   await seed({ ...legacy(), photoKey: key, deletedAt: DATE, _photoDeleting: true });
   await assertSucceeds(getDoc(plantRef()));
