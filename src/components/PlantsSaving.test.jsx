@@ -67,6 +67,7 @@ test('keeps the add form open and prevents repeated saves while Firestore is pen
   expect(screen.getByRole('dialog', { name: 'Добавить растение' })).toBeInTheDocument();
   await act(async () => finishSave({ id: 'plant-2' }));
   expect(screen.queryByRole('form', { name: 'Данные растения' })).not.toBeInTheDocument();
+  expect(addDoc.mock.calls[0][1]).not.toHaveProperty('photo');
 });
 
 test('preserves the add form after a failed save and allows retrying', async () => {
@@ -122,6 +123,10 @@ test('preserves edits after a failed save and allows retrying', async () => {
   fireEvent.submit(screen.getByRole('form', { name: 'Данные растения' }));
   await waitFor(() => expect(screen.queryByRole('form', { name: 'Данные растения' })).not.toBeInTheDocument());
   expect(updateDoc).toHaveBeenCalledTimes(2);
+  for (const [, fields] of updateDoc.mock.calls) {
+    expect(fields).not.toHaveProperty('photo');
+    expect(fields).not.toHaveProperty('photoKey');
+  }
 });
 
 test('ends loading and reports a Firestore subscription error', () => {
