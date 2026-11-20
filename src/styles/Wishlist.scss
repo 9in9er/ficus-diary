@@ -17,7 +17,6 @@
   input, textarea { box-sizing: border-box; width: 100%; min-width: 0; font: inherit; }
   .input { padding: rem.convert(10px); border: 1px solid #ddd; border-radius: rem.convert(5px); }
   textarea { resize: vertical; }
-  .wishlistPhotoPreview { max-width: 100%; height: rem.convert(120px); object-fit: contain; justify-self: start; }
 }
 
 .wishlistHint { color: #666; font-size: rem.convert(14px); line-height: 1.5; }
