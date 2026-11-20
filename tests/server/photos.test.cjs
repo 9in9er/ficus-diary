@@ -168,23 +168,61 @@ test('deletion is disabled by default; enabled deletion requires trash and locks
 
 module.exports = { fixture };
 
-test('release handler blocks deletion even if Vercel flag is accidentally true, without database/storage writes', async () => {
-  const f = fixture({ 'plants/plant-1': { ...legacy, deletedAt: '2026-11-20' } });
+test('handler requires exact env opt-in and preserves permanent deletion safeguards', async (t) => {
   const previous = process.env.ENABLE_PERMANENT_PLANT_DELETE;
-  try {
+  const trashed = { ...legacy, deletedAt: '2026-11-20',
+    photoKey: `${storage.plantPrefix('owner', 'plant-1')}photos/12345678-1234-1234-1234-123456789abc.webp` };
+  const run = async (f, { uid = 'owner', authorization = 'Bearer test-token' } = {}) => {
     const handler = createHandler({ getServices: () => ({ db: f.db,
-      auth: { verifyIdToken: async () => ({ uid: 'owner' }) } }), files: f.files });
-    for (const value of [undefined, 'false', 'true']) {
-      if (value === undefined) delete process.env.ENABLE_PERMANENT_PLANT_DELETE;
-      else process.env.ENABLE_PERMANENT_PLANT_DELETE = value;
-      const before = structuredClone([...f.records]);
-      const res = { setHeader() {}, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
-      await handler({ method: 'POST', headers: { authorization: 'Bearer test-token' },
-        body: { action: 'delete', plantId: 'plant-1' } }, res);
-      assert.equal(res.code, 409);
-      assert.match(res.body.error, /отключено/);
-      assert.deepEqual([...f.records], before);
-      assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
+      auth: { verifyIdToken: async () => ({ uid }) } }), files: f.files });
+    const res = { setHeader() {}, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
+    await handler({ method: 'POST', headers: { authorization },
+      body: { action: 'delete', plantId: 'plant-1' } }, res);
+    return res;
+  };
+  try {
+    for (const value of [undefined, 'false', 'TRUE', '1', ' true', 'true ', '"true"']) {
+      await t.test(`blocks deletion with env ${JSON.stringify(value) ?? 'unset'}`, async () => {
+        if (value === undefined) delete process.env.ENABLE_PERMANENT_PLANT_DELETE;
+        else process.env.ENABLE_PERMANENT_PLANT_DELETE = value;
+        const f = fixture({ 'plants/plant-1': trashed });
+        const before = structuredClone([...f.records]);
+        const res = await run(f);
+        assert.equal(res.code, 409);
+        assert.match(res.body.error, /отключено/);
+        assert.deepEqual([...f.records], before);
+        assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
+      });
+    }
+
+    process.env.ENABLE_PERMANENT_PLANT_DELETE = 'true';
+    await t.test('allows the authenticated owner to delete a trashed plant with env true', async () => {
+      const f = fixture({ 'plants/plant-1': trashed });
+      f.files.deletePlantFiles.mock.mockImplementation(async () => {
+        assert.equal(f.records.get('plants/plant-1')._photoDeleting, true);
+      });
+      const res = await run(f);
+      assert.equal(res.code, 200);
+      assert.deepEqual(res.body, { deleted: true });
+      assert.equal(f.files.deletePlantFiles.mock.callCount(), 1);
+      assert.deepEqual(f.files.deletePlantFiles.mock.calls[0].arguments, ['owner', 'plant-1']);
+      assert.equal(f.records.has('plants/plant-1'), false);
+    });
+
+    for (const { name, plant = trashed, request, status } of [
+      { name: 'another user', request: { uid: 'intruder' }, status: 403 },
+      { name: 'an active plant', plant: { ...trashed, deletedAt: null }, status: 409 },
+      { name: 'an unowned photo key', plant: { ...trashed, photoKey: 'plants/another-user/photo.webp' }, status: 409 },
+      { name: 'an unauthenticated request', request: { authorization: null }, status: 401 },
+    ]) {
+      await t.test(`rejects ${name} with env true without database/storage writes`, async () => {
+        const f = fixture({ 'plants/plant-1': plant });
+        const before = structuredClone([...f.records]);
+        const res = await run(f, request);
+        assert.equal(res.code, status);
+        assert.deepEqual([...f.records], before);
+        assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
+      });
     }
   } finally {
     if (previous === undefined) delete process.env.ENABLE_PERMANENT_PLANT_DELETE;
