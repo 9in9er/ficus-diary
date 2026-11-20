@@ -29,7 +29,7 @@
     "test": "react-scripts test",
     "test:server": "node --no-experimental-require-module --test tests/server/*.test.cjs",
     "test:rules": "firebase emulators:exec --config firebase.rules-test.json --project demo-ficus-diary-rules --only firestore \"node --test --test-concurrency=1 tests/firestore/*.test.cjs\"",
-    "verify:photos": "node --env-file-if-exists=.env.local scripts/verify-photo-migration.cjs",
+    "verify:photos": "node --env-file-if-exists=.env.local scripts/verify-photos.cjs",
     "backup:firestore": "node --env-file-if-exists=.env.local scripts/backup-firestore.cjs",
     "verify:firestore-backup": "node scripts/verify-firestore-backup.cjs",
     "lint": "eslint src --ext .js,.jsx,.ts",

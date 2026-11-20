@@ -6,14 +6,14 @@ const { spawnSync } = require('node:child_process');
 const sharp = require('sharp');
 const { plantPrefix, MAX_PHOTO_BYTES } = require('../../server/storage.cjs');
 const { parseArgs, assertProject, createStorageReader, decodeWebP, verifyObject,
-  runVerification, reportExitCode } = require('../../scripts/verify-photo-migration.cjs');
+  runVerification, reportExitCode } = require('../../scripts/verify-photos.cjs');
 
 const project = 'my-plants-app-8f6fc';
 const legacy = 'data:image/png;base64,DO_NOT_LOG_BASE64';
 const secret = 'https://example.invalid/?X-Amz-Signature=DO_NOT_LOG_SECRET';
 const webp = sharp({ create: { width: 32, height: 24, channels: 3, background: '#729348' } }).webp().toBuffer();
 const keyFor = (id, uid = 'owner') => `${plantPrefix(uid, id)}photos/12345678-1234-1234-1234-123456789abc.webp`;
-const plant = (id, extra = {}) => ({ userId: 'owner', photo: legacy, photoKey: keyFor(id), ...extra });
+const plant = (id, extra = {}) => ({ userId: 'owner', photoKey: keyFor(id), ...extra });
 const sdkError = (status, name = 'S3Error') => Object.assign(new Error(secret), {
   name, $metadata: { httpStatusCode: status },
 });
@@ -87,12 +87,11 @@ async function audit(records, { storageOptions, firestoreOptions, options = {} }
 test('CLI scans all plants; rejects write flags, scope truncation, duplicates and unsafe values', () => {
   const args = ['--project', project];
   assert.deepEqual(parseArgs(args), { project });
-  assert.deepEqual(parseArgs([...args, '--expect-photo-keys', '264', '--expect-trash-base64', '46']),
-    { project, expectPhotoKeys: 264, expectTrashBase64: 46 });
+  assert.deepEqual(parseArgs([...args, '--expect-photo-keys', '12']), { project, expectPhotoKeys: 12 });
   assert.equal(parseArgs([...args, '--expect-photo-keys', '0']).expectPhotoKeys, 0);
   assert.deepEqual(parseArgs(['--help']), { help: true });
   for (const flag of ['--apply', '--delete', '--cleanup', '--dry-run', '--limit', '--user', '--plant', '--help',
-    '__proto__', 'constructor', 'toString']) {
+    '--expect-trash-base64', '--confirmation', '__proto__', 'constructor', 'toString']) {
     assert.throws(() => parseArgs([...args, flag, '1']));
   }
   for (const value of ['-1', '1.5', '1e2', '9007199254740992', secret]) {
@@ -102,7 +101,8 @@ test('CLI scans all plants; rejects write flags, scope truncation, duplicates an
   assert.throws(() => parseArgs(['--project']));
   assert.throws(() => parseArgs(['--project', secret]));
   assert.throws(() => parseArgs([...args, ...args]));
-  assert.throws(() => parseArgs([...args, '--expect-trash-base64']));
+  assert.throws(() => parseArgs([...args, '--expect-photo-keys']));
+  assert.throws(() => parseArgs([...args, '--expect-photo-keys', '1', '--expect-photo-keys', '1']));
 });
 
 test('project/database and Yandex endpoint checks happen before any cloud reads', () => {
@@ -131,42 +131,39 @@ test('project/database and Yandex endpoint checks happen before any cloud reads'
   }
 });
 
-test('bulk audit verifies 262 migrated and 2 older photos, includes all owners/wishlist/trash, and only reads', async () => {
+test('bulk integrity check includes all owners, wishlist, trash and plants without photos, and only reads', async () => {
   const records = {};
-  for (let i = 0; i < 262; i += 1) {
-    const id = `migrated-${String(i).padStart(3, '0')}`;
-    records[id] = plant(id, { isWishlisted: i === 3 });
+  for (let i = 0; i < 205; i += 1) {
+    const id = `plant-${String(i).padStart(3, '0')}`;
+    const uid = i === 5 ? 'second-owner' : 'owner';
+    records[id] = plant(id, { userId: uid, photoKey: keyFor(id, uid), isWishlisted: i === 3,
+      deletedAt: i === 4 ? '2026-11-19' : null });
   }
-  records.old1 = plant('old1', { photo: null });
-  records.old2 = plant('old2', { userId: 'second-owner', photoKey: keyFor('old2', 'second-owner'), photo: null });
-  for (let i = 0; i < 46; i += 1) records[`trash-${i}`] = { userId: 'owner', deletedAt: '2026-11-19', photo: legacy };
-  const { report, commands, queries } = await audit(records, {
-    options: { expectPhotoKeys: 264, expectTrashBase64: 46 },
-  });
-  assert.equal(report.totalDocuments, 310);
-  assert.equal(report.verified, 264);
-  assert.equal(report.attemptedObjects, 264);
-  assert.equal(report.photoAndPhotoKeyFields, 264);
-  assert.equal(report.base64AndPhotoKey, 262);
-  assert.equal(report.trashPlants, 46);
-  assert.equal(report.trashWithBase64, 46);
-  assert.equal(report.trashWithBase64WithoutPhotoKey, 46);
-  assert.equal(report.activeBase64WithoutPhotoKey, 0);
+  records.withoutPhoto = { userId: 'owner' };
+  records.wishWithoutPhoto = { userId: 'owner', isWishlisted: true, photoKey: null };
+  records.trashWithoutPhoto = { userId: 'owner', deletedAt: '2026-11-19' };
+  const { report, commands, queries } = await audit(records, { options: { expectPhotoKeys: 205 } });
+  assert.equal(report.totalDocuments, 208);
+  assert.equal(report.verified, 205);
+  assert.equal(report.attemptedObjects, 205);
+  assert.equal(report.withoutPhotoKey, 3);
+  assert.equal(report.trashPlants, 2);
+  assert.equal(report.legacyPhotoFields, 0);
   assert.equal(report.errors, 0);
   assert.equal(report.potentialProblems, 0);
   assert.equal(report.failedPhotoKeys, 0);
   assert.equal(report.scanComplete, true);
   assert.equal(report.checksPassed, true);
   assert.equal(reportExitCode(report), 0);
-  assert.equal(report.verifiedBytes, 264 * (await webp).length);
-  assert.equal(commands.length, 528);
-  assert.equal(queries.length, 4);
+  assert.equal(report.verifiedBytes, 205 * (await webp).length);
+  assert.equal(commands.length, 410);
+  assert.equal(queries.length, 3);
   assert.equal(queries[1].cursor, Object.keys(records).sort()[99]);
 });
 
 test('audit accepts historical migration keys without regenerating them', async () => {
   const photoKey = `${plantPrefix('owner', 'plant-1')}photos/b3d652ac-7074-4921-6e0d-7c6722eeac98.webp`;
-  const { report, commands } = await audit({ 'plant-1': plant('plant-1', { photoKey, photo: null }) });
+  const { report, commands } = await audit({ 'plant-1': plant('plant-1', { photoKey }) });
   assert.equal(report.verified, 1);
   assert.equal(report.checksPassed, true);
   assert.equal(reportExitCode(report), 0);
@@ -288,9 +285,9 @@ test('fake, truncated, oversized and animated WebP fail; metadata alone is insuf
   }
 });
 
-test('field coexistence and trash/base64 counters are separate; keyed trash is verified too', async () => {
+test('obsolete photo fields are reported in active plants and trash, without skipping valid stored photos', async () => {
   const { report } = await audit({
-    a: plant('a'),
+    a: plant('a', { photo: legacy }),
     b: { userId: 'owner', photo: null, photoKey: null },
     c: { userId: 'owner', photo: legacy, deletedAt: '2026-11-19' },
     d: plant('d', { deletedAt: '2026-11-19' }),
@@ -299,29 +296,41 @@ test('field coexistence and trash/base64 counters are separate; keyed trash is v
     g: { userId: 'owner' },
   });
   assert.equal(report.photoKeyFields, 4);
-  assert.equal(report.photoAndPhotoKeyFields, 4);
   assert.equal(report.withPhotoKey, 3);
-  assert.equal(report.base64AndPhotoKey, 2);
   assert.equal(report.withoutPhotoKey, 4);
-  assert.equal(report.trashWithBase64, 2);
-  assert.equal(report.trashWithBase64WithoutPhotoKey, 1);
-  assert.equal(report.activeBase64WithoutPhotoKey, 1);
+  assert.equal(report.trashPlants, 2);
+  assert.equal(report.legacyPhotoFields, 5);
+  assert.equal(report.problemsByCode.LEGACY_PHOTO_FIELD, 5);
+  assert.equal(report.problemsByCode.PHOTO_DELETION_IN_PROGRESS, 1);
   assert.equal(report.verified, 3);
-  assert.equal(report.potentialProblems, 2);
+  assert.equal(report.potentialProblems, 6);
   assert.equal(report.errors, 0);
   assert.equal(report.checksPassed, false);
   assert.equal(reportExitCode(report), 2);
 });
 
-test('expected count mismatches and an empty key population cannot silently pass', async () => {
-  const { report } = await audit({ a: plant('a') }, { options: { expectPhotoKeys: 264, expectTrashBase64: 46 } });
-  assert.equal(report.potentialProblems, 2);
+test('optional expected key counts detect changes from a known baseline', async () => {
+  const { report } = await audit({ a: plant('a') }, { options: { expectPhotoKeys: 2 } });
+  assert.equal(report.potentialProblems, 1);
   assert.equal(report.problemsByCode.PHOTO_KEY_COUNT_MISMATCH, 1);
-  assert.equal(report.problemsByCode.TRASH_BASE64_COUNT_MISMATCH, 1);
   assert.equal(reportExitCode(report), 2);
-  const empty = await audit({});
-  assert.equal(empty.report.problemsByCode.NO_PHOTO_KEYS, 1);
-  assert.equal(empty.report.checksPassed, false);
+  const empty = await audit({}, { options: { expectPhotoKeys: 1 } });
+  assert.equal(empty.report.problemsByCode.PHOTO_KEY_COUNT_MISMATCH, 1);
+  assert.equal(reportExitCode(empty.report), 2);
+});
+
+test('empty collections and plants without photographs are valid without a migration target', async () => {
+  for (const records of [{}, { a: { userId: 'owner' }, b: { userId: 'owner', photoKey: null } }]) {
+    const { report, commands } = await audit(records, { options: { expectPhotoKeys: 0 } });
+    assert.equal(report.scanComplete, true);
+    assert.equal(report.checksPassed, true);
+    assert.equal(report.potentialProblems, 0);
+    assert.equal(reportExitCode(report), 0);
+    assert.equal(commands.length, 0);
+    const withoutExpectation = await audit(records);
+    assert.equal(withoutExpectation.report.checksPassed, true);
+    assert.equal(reportExitCode(withoutExpectation.report), 0);
+  }
 });
 
 test('page read failure marks partial report incomplete, without exposing the raw SDK error', async () => {
@@ -347,12 +356,16 @@ test('CLI help and configuration/argument errors do not initialize the cloud or 
   for (const name of ['PATH', 'SystemRoot', 'TEMP', 'TMP']) if (process.env[name]) env[name] = process.env[name];
   for (const [args, expectedCode] of [[['--help'], 0], [['--project', project], 1], [['--project', secret], 1],
     [['--project', project, '--apply', secret], 1]]) {
-    const result = spawnSync(process.execPath, ['scripts/verify-photo-migration.cjs', ...args], {
+    const result = spawnSync(process.execPath, ['scripts/verify-photos.cjs', ...args], {
       encoding: 'utf8', env, timeout: 15_000,
     });
     assert.ifError(result.error);
     assert.equal(result.status, expectedCode, result.stderr);
     assert.ok(!(result.stdout + result.stderr).includes(secret));
     assert.ok(!(result.stdout + result.stderr).includes('Error:'));
+    if (args[0] === '--help') {
+      assert.match(result.stdout, /photo integrity check/);
+      assert.ok(!result.stdout.includes('--expect-trash-base64'));
+    }
   }
 });
