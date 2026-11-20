@@ -19,6 +19,8 @@ test('sends Firebase token only to own API and WebP bytes to signed upload URL',
   const body = JSON.parse(fetch.mock.calls[2][1].body);
   expect(body).toMatchObject({ action: 'commit', plantId: 'plant', uploadId: 'ticket' });
   expect(body).not.toHaveProperty('photo');
+  expect(body.fields).toEqual({ name: 'Ficus' });
+  expect(body.fields).not.toHaveProperty('photo');
 });
 
 test('retry after lost commit response reuses upload ticket and never reuploads saved object', async () => {

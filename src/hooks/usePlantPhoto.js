@@ -31,7 +31,7 @@ export default function usePlantPhoto(plant) {
 
   const current = resolved?.uid === user?.uid && resolved?.key === plant.photoKey;
   return {
-    src: (plant.photoKey && current && !failed && resolved.url) || plant.photo || null,
+    src: (plant.photoKey && current && !failed && resolved.url) || null,
     failed,
     retry: () => setRevision((value) => value + 1),
     onError: () => setFailed(true),
