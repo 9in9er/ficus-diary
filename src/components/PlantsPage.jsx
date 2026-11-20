@@ -135,11 +135,11 @@ function PlantsPage({ isWishlist = false }) {
                             isSubmitting={isAddingPlant}
                             error={addPlantError}
                         /> : <PlantForm
+                            photoForm={addForm}
                             name={addForm.draft.name}
                             acquiredAt={addForm.draft.acquiredAt}
                             onNameChange={(value) => addForm.setField('name', value)}
                             onDateChange={(value) => addForm.setField('acquiredAt', value)}
-                            onPhotoChange={addForm.handlePhotoChange}
                             onSubmit={submitNewPlant}
                             onCancel={closeAddModal}
                             isSubmitting={isAddingPlant}

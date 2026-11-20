@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { getLocalDate } from '../utils/plantDates';
 import { getWishlistDetails } from '../utils/wishlist';
 import { photoRequest, savePlantPhoto } from '../services/plantPhotos';
+import { getDraftPhotoUrl } from '../utils/photoUrl';
 
 const CARE_LOG_LIMIT = 8;
 
@@ -46,6 +47,9 @@ export function usePlants(user) {
 
   const createPlant = async (draft) => {
     if (!draft.name.trim() || !userId) throw new Error('Не заполнены данные растения или аккаунта.');
+    if (draft.photoSource === 'url') return saveWithPhotoUrl(null, draft, {
+      name: draft.name, acquiredAt: draft.acquiredAt || '',
+    }, true);
     if (draft.photoBlob) return saveWithPhoto(null, draft, {
       name: draft.name, acquiredAt: draft.acquiredAt || '',
     }, true);
@@ -61,12 +65,14 @@ export function usePlants(user) {
 
   const savePlant = (id, draft) => {
     const fields = { name: draft.name, acquiredAt: draft.acquiredAt };
+    if (draft.photoSource === 'url') return saveWithPhotoUrl(id, draft, fields);
     return draft.photoBlob ? saveWithPhoto(id, draft, fields) : updatePlant(id, fields);
   };
 
   const createWish = async (draft) => {
     if (!draft.name.trim() || !userId) throw new Error('Не заполнены данные растения или аккаунта.');
     const fields = { name: draft.name.trim(), ...getWishlistDetails(draft) };
+    if (draft.photoSource === 'url') return saveWithPhotoUrl(null, draft, fields, true, true);
     if (draft.photoBlob) return saveWithPhoto(null, draft, fields, true, true);
     await addDoc(collection(db, 'plants'), {
       ...fields,
@@ -77,7 +83,14 @@ export function usePlants(user) {
 
   const saveWish = (id, draft) => {
     const fields = { name: draft.name.trim(), ...getWishlistDetails(draft) };
+    if (draft.photoSource === 'url') return saveWithPhotoUrl(id, draft, fields);
     return draft.photoBlob ? saveWithPhoto(id, draft, fields) : updatePlant(id, fields);
+  };
+
+  const saveWithPhotoUrl = (id, draft, fields, creating = false, isWishlisted = false) => {
+    const photo = getDraftPhotoUrl(draft);
+    return photoRequest(user, { action: 'link', plantId: id || doc(collection(db, 'plants')).id,
+      photo, fields, creating, isWishlisted });
   };
 
   const appendCareEntry = (id, field, log) => {
