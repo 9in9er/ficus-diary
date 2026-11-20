@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { resizePlantPhoto } from '../utils/resizePlantPhoto';
+import { isHttpPhotoUrl } from '../utils/photoUrl';
 
-const emptyDraft = () => ({ id: null, name: '', acquiredAt: '', photoKey: null, photo: null, photoBlob: null, description: '', price: '', links: '' });
+const emptyDraft = () => ({ id: null, name: '', acquiredAt: '', photoKey: null, photo: null, photoBlob: null, photoSource: 'file', photoUrl: '', photoUrlStatus: 'loading', description: '', price: '', links: '' });
 
 export default function usePlantDraft() {
   const [draft, setDraft] = useState(emptyDraft);
@@ -20,6 +21,9 @@ export default function usePlantDraft() {
       photoKey: plant.photoKey || null,
       photo: plant.photo || null,
       photoBlob: null,
+      photoSource: !plant.photoKey && isHttpPhotoUrl(plant.photo) ? 'url' : 'file',
+      photoUrl: !plant.photoKey && isHttpPhotoUrl(plant.photo) ? plant.photo : '',
+      photoUrlStatus: 'loading',
       description: plant.description || '',
       price: plant.price || '',
       links: Array.isArray(plant.links) ? plant.links.join('\n') : '',
@@ -30,8 +34,23 @@ export default function usePlantDraft() {
     setDraft((previous) => ({ ...previous, [field]: value }));
   };
 
-  const handlePhotoChange = async (event) => {
-    const file = event.target.files[0];
+  const setPhotoSource = (photoSource) => {
+    photoRequest.current += 1;
+    setIsProcessingPhoto(false);
+    setPhotoError('');
+    setDraft((previous) => ({ ...previous, photoSource, photoBlob: null, photoUrlStatus: 'loading' }));
+  };
+
+  const setPhotoUrl = (photoUrl) => {
+    setDraft((previous) => ({ ...previous, photoUrl, photoUrlStatus: 'loading' }));
+  };
+
+  const setPhotoUrlStatus = useCallback((url, status) => {
+    setDraft((previous) => previous.photoSource === 'url' && previous.photoUrl.trim() === url
+      ? { ...previous, photoUrlStatus: status } : previous);
+  }, []);
+
+  const handlePhotoFile = async (file) => {
     if (!file) return;
     const request = ++photoRequest.current;
     setPhotoError('');
@@ -48,5 +67,15 @@ export default function usePlantDraft() {
     }
   };
 
-  return { draft, setField, resetDraft, handlePhotoChange, isProcessingPhoto, photoError };
+  const handlePhotoChange = (event) => {
+    const file = event.target.files[0];
+    event.target.value = '';
+    return handlePhotoFile(file);
+  };
+
+  const isPhotoReady = draft.photoSource !== 'url'
+    || (isHttpPhotoUrl(draft.photoUrl) && draft.photoUrlStatus === 'loaded');
+
+  return { draft, setField, resetDraft, handlePhotoChange, handlePhotoFile, isProcessingPhoto, photoError,
+    setPhotoSource, setPhotoUrl, setPhotoUrlStatus, isPhotoReady };
 }

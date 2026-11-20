@@ -26,7 +26,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
     handleDeletePlant, toggleNeedReplant, togglePinPlant, toggleHidePlant,
     addNoteToPlant, deleteNoteFromPlant, restorePlant, permanentlyDeletePlant,
   } = actions;
-  const { editingId, draft: editPlant, startEdit: startEditPlant, cancelEdit, handlePhotoChange } = editor;
+  const { editingId, draft: editPlant, startEdit: startEditPlant, cancelEdit } = editor;
   const [isDotsMenuOpen, setIsDotsMenuOpen] = useState(false);
   const [editError, setEditError] = useState('');
   const isEditing = editingId === plant.id;
@@ -107,6 +107,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
       <div className='plantInfo'>
         {isEditing ? (
           <PlantForm
+            photoForm={editor}
             name={editPlant.name}
             acquiredAt={editPlant.acquiredAt}
             onNameChange={(newName) =>
@@ -115,7 +116,6 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
             onDateChange={(newDate) =>
               editor.setField('acquiredAt', newDate)
             }
-            onPhotoChange={handlePhotoChange}
             onSubmit={submitEdit}
             onCancel={() => { setEditError(''); cancelEdit(); }}
             isSubmitting={isPending}

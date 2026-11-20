@@ -1,11 +1,12 @@
+import PlantPhotoInput from './PlantPhotoInput';
 import '../styles/PlantForm.scss';
 
 function PlantForm({
   name,
   acquiredAt,
+  photoForm,
   onNameChange,
   onDateChange,
-  onPhotoChange,
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -13,7 +14,10 @@ function PlantForm({
   error = '',
 }) {
   return (
-    <form className='mainForm' onSubmit={onSubmit} aria-label='Данные растения' aria-busy={isSubmitting}>
+    <form className='mainForm' onSubmit={(event) => {
+      if (!photoForm.isPhotoReady) { event.preventDefault(); return; }
+      onSubmit(event);
+    }} aria-label='Данные растения' aria-busy={isSubmitting}>
       <div className='mainForm_wrap'>
         <div className='nameAndDate'>
           <label className='nameLabel'>
@@ -39,19 +43,12 @@ function PlantForm({
             />
           </label>
         </div>
-        <input
-          className='fileLoad'
-          type='file'
-          accept='image/*'
-          aria-label='Фотография растения'
-          onChange={onPhotoChange}
-          disabled={isSubmitting}
-        />
       </div>
 
+      <PlantPhotoInput form={photoForm} disabled={isSubmitting} />
       {error && <p className='formError' role='alert'>{error}</p>}
       <div className='modalButtons'>
-        <button className='btn btnSubmit' type='submit' disabled={isSubmitting || isProcessingPhoto}>
+        <button className='btn btnSubmit' type='submit' disabled={isSubmitting || isProcessingPhoto || !photoForm.isPhotoReady}>
           {isSubmitting ? 'Сохраняем…' : isProcessingPhoto ? 'Обрабатываем фото…' : 'Сохранить'}
         </button>
         <button

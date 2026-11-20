@@ -1,7 +1,20 @@
 @use 'sass-rem' as rem;
+@use './variables' as *;
 
 
 .mainForm {
+  .plantPhotoPreview {
+    display: block;
+    max-width: 100%;
+    height: rem.convert(120px);
+    object-fit: contain;
+    justify-self: start;
+  }
+
+  > .plantPhotoPreview {
+    margin-top: rem.convert(10px);
+  }
+
   .mainForm_wrap {
     display: flex;
     flex-wrap: wrap;
@@ -25,3 +38,92 @@
 .plantDate {
   padding: rem.convert(10px);
 }
+
+.mainForm .plantPhotoInput {
+  box-sizing: border-box;
+  min-width: 0;
+  margin-top: rem.convert(14px);
+  padding: rem.convert(12px);
+  border: 1px solid $borderColor;
+  border-radius: rem.convert(8px);
+  display: grid;
+  gap: rem.convert(10px);
+
+  .photoTitle { font-weight: 600; }
+
+  .photoSourceSwitch {
+    display: flex;
+    gap: rem.convert(4px);
+    padding: rem.convert(3px);
+    background: #f5f5f5;
+    border-radius: rem.convert(5px);
+  }
+
+  .photoSourceButton {
+    flex: 1;
+    min-width: 0;
+    padding: rem.convert(10px 6px);
+    line-height: 1.3;
+    color: $grayTextColor;
+    background: transparent;
+
+    &[aria-pressed='true'] {
+      background: $pixelatedGrassColor;
+      color: #fff;
+    }
+  }
+
+  .photoFileUpload {
+    box-sizing: border-box;
+    display: grid;
+    justify-items: center;
+    gap: rem.convert(8px);
+    width: 100%;
+    min-width: 0;
+    min-height: rem.convert(140px);
+    padding: rem.convert(20px 12px);
+    border: 1px dashed $borderColor;
+    border-radius: rem.convert(5px);
+    background: #fff;
+    color: $grayTextColor;
+    font: inherit;
+    text-align: center;
+    line-height: 1.5;
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+
+    &:hover:not(:disabled), &--dragging {
+      border-color: $pixelatedGrassColor;
+      background: rgba($pixelatedGrassColor, 0.06);
+    }
+
+    &:disabled { opacity: 0.6; cursor: wait; }
+  }
+
+  .photoUploadIcon { color: $pixelatedGrassColor; }
+  .photoDropTitle { font-weight: 500; }
+
+  .fileLoad { width: 100%; min-width: 0; font: inherit; }
+  .photoUrlLabel { font-size: rem.convert(14px); }
+  .photoUrlInput {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: rem.convert(10px);
+    font: inherit;
+    border: 1px solid $borderColor;
+    border-radius: rem.convert(5px);
+
+    &[aria-invalid='true'] { border-color: $redPigmentColor; }
+  }
+
+  .photoHint { margin: 0; color: $grayTextColor; font-size: rem.convert(14px); line-height: 1.5; }
+  .formError { margin: 0; font-size: rem.convert(14px); line-height: 1.5; }
+  .formError p { margin: rem.convert(0 0 8px); }
+  .photoRetry { background: $pixelatedGrassColor; }
+  .plantPhotoPreview { border-radius: rem.convert(5px); }
+  .plantPhotoPreview[hidden] { display: none; }
+  :is(button, input):focus-visible { outline: 2px solid $pixelatedGrassColor; outline-offset: 2px; }
+}
+
+.wishlistForm .plantPhotoInput { margin-top: 0; }

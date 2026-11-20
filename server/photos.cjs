@@ -46,6 +46,35 @@ function createPhotoService({ db, files = storage, now = () => Date.now(), delet
     if (!validId(plantId)) fail(400, 'Некорректный ID растения.');
     const ref = db.collection('plants').doc(plantId);
 
+    if (action === 'link') {
+      let photo;
+      try {
+        if (typeof body.photo !== 'string' || !/^https?:\/\//i.test(body.photo.trim())) throw new Error();
+        photo = body.photo.trim();
+        const url = new URL(photo);
+        if (!['https:', 'http:'].includes(url.protocol) || !url.hostname) throw new Error();
+      } catch { fail(400, 'Введите корректную ссылку на изображение с http:// или https://.'); }
+      // Store only the URL. No request to the external host or object storage.
+      return db.runTransaction(async (tx) => {
+        const snapshot = await tx.get(ref);
+        const creating = body.creating === true;
+        if (creating && snapshot.exists) fail(409, 'Растение уже существует.');
+        const plant = creating ? null : owned(snapshot, uid, { writable: true });
+        const isWishlisted = creating ? body.isWishlisted === true : !!plant.isWishlisted;
+        const fields = plantFields(body.fields, isWishlisted);
+        if (creating) {
+          tx.create(ref, { ...fields, photo, userId: uid, isWishlisted,
+            createdAt: new Date(now()).toISOString(), deletedAt: null, hidden: false, pinned: false,
+            ...(!isWishlisted ? { wateringLog: [], fertilizingLog: [], notes: [] } : {}),
+          });
+        } else {
+          // Old objects remain available for the existing permanent-delete flow.
+          tx.update(ref, { ...fields, photo, photoKey: null });
+        }
+        return { photo };
+      });
+    }
+
     if (action === 'read') {
       const plant = owned(await ref.get(), uid);
       if (!plant.photoKey) return { url: null };
