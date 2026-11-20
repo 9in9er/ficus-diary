@@ -212,20 +212,23 @@ test('deletion is disabled by default; enabled deletion requires trash and locks
 
 module.exports = { fixture };
 
-test('handler requires exact env opt-in and preserves permanent deletion safeguards', async (t) => {
+test('handler uses only exact env opt-in and preserves permanent deletion safeguards', async (t) => {
   const previous = process.env.ENABLE_PERMANENT_PLANT_DELETE;
-  const trashed = { ...legacy, deletedAt: '2026-11-20',
+  const trashed = { userId: 'owner', name: 'Ficus', deletedAt: '2026-11-20',
     photoKey: `${storage.plantPrefix('owner', 'plant-1')}photos/12345678-1234-1234-1234-123456789abc.webp` };
-  const run = async (f, { uid = 'owner', authorization = 'Bearer test-token' } = {}) => {
+  const run = async (f, { uid = 'owner', authorization = 'Bearer test-token', tokenError = false } = {}) => {
     const handler = createHandler({ getServices: () => ({ db: f.db,
-      auth: { verifyIdToken: async () => ({ uid }) } }), files: f.files });
+      auth: { verifyIdToken: async () => {
+        if (tokenError) throw new Error('invalid token');
+        return { uid };
+      } } }), files: f.files });
     const res = { setHeader() {}, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
     await handler({ method: 'POST', headers: { authorization },
       body: { action: 'delete', plantId: 'plant-1' } }, res);
     return res;
   };
   try {
-    for (const value of [undefined, 'false', 'TRUE', '1', ' true', 'true ', '"true"']) {
+    for (const value of [undefined, '', 'false', 'TRUE', '1', ' true', 'true ', '"true"']) {
       await t.test(`blocks deletion with env ${JSON.stringify(value) ?? 'unset'}`, async () => {
         if (value === undefined) delete process.env.ENABLE_PERMANENT_PLANT_DELETE;
         else process.env.ENABLE_PERMANENT_PLANT_DELETE = value;
@@ -258,6 +261,7 @@ test('handler requires exact env opt-in and preserves permanent deletion safegua
       { name: 'an active plant', plant: { ...trashed, deletedAt: null }, status: 409 },
       { name: 'an unowned photo key', plant: { ...trashed, photoKey: 'plants/another-user/photo.webp' }, status: 409 },
       { name: 'an unauthenticated request', request: { authorization: null }, status: 401 },
+      { name: 'an invalid token', request: { tokenError: true }, status: 401 },
     ]) {
       await t.test(`rejects ${name} with env true without database/storage writes`, async () => {
         const f = fixture({ 'plants/plant-1': plant });
