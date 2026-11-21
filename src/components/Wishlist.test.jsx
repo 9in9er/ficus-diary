@@ -110,11 +110,35 @@ test('adds a wish with a photo, optional details and normalized links', async ()
   expect(revokeUrl).toHaveBeenCalledWith('blob:new-wish');
 });
 
+test('keeps acquisition visible and reveals edit/delete through the dots button', () => {
+  renderPage();
+  const card = screen.getByRole('listitem', { name: wish.name });
+  const actions = within(card);
+  const trigger = actions.getByRole('button', { name: 'Действия с растением' });
+  expect(actions.getByRole('button', { name: 'Уже у меня' })).toBeVisible();
+  expect(actions.queryByRole('button', { name: 'Редактировать' })).not.toBeInTheDocument();
+  expect(actions.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument();
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(trigger);
+  expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  expect(actions.getByRole('button', { name: 'Редактировать' })).toBeVisible();
+  expect(actions.getByRole('button', { name: 'Удалить' })).toBeVisible();
+  fireEvent.keyDown(card, { key: 'Escape' });
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  expect(trigger).toHaveFocus();
+  expect(actions.queryByRole('button', { name: 'Редактировать' })).not.toBeInTheDocument();
+  fireEvent.click(trigger);
+  fireEvent.mouseLeave(card);
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  expect(actions.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument();
+});
+
 test('edits a key-only wish with a temporary-link preview and preserves the key without recreating photo', async () => {
   records = [ordinary, { ...wish, photoKey: 'published-key' }];
   photoRequest.mockResolvedValue({ url: '/published-wish.webp', expiresIn: 600 });
   renderPage();
   await screen.findByRole('img', { name: wish.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   expect(await screen.findByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', '/published-wish.webp');
   expect(screen.getByRole('img', { name: 'Предпросмотр фотографии' })).toHaveClass('wishlistPhotoPreview');
@@ -143,6 +167,7 @@ test('replaces a key-only photo, ignores late read results, and revokes local pr
   let finishOldRead;
   clearPlantPhotoCache();
   photoRequest.mockImplementationOnce(() => new Promise((resolve) => { finishOldRead = resolve; }));
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   await act(async () => fireEvent.change(screen.getByLabelText('Фотография растения'), {
     target: { files: [new File(['first'], 'first.png', { type: 'image/png' })] },
@@ -181,6 +206,7 @@ test('cancelling a photo replacement restores the key-only stored preview and re
   photoRequest.mockResolvedValue({ url: '/published-wish.webp', expiresIn: 600 });
   renderPage();
   await screen.findByRole('img', { name: wish.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   await act(async () => fireEvent.change(screen.getByLabelText('Фотография растения'), {
     target: { files: [new File(['photo'], 'new.png', { type: 'image/png' })] },
@@ -188,6 +214,7 @@ test('cancelling a photo replacement restores the key-only stored preview and re
   await screen.findByRole('img', { name: 'Предпросмотр фотографии' });
   fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
   expect(revoke).toHaveBeenCalledWith('blob:cancelled-replacement');
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   expect(await screen.findByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', '/published-wish.webp');
   expect(savePlantPhoto).not.toHaveBeenCalled();
@@ -241,6 +268,7 @@ test('keeps an unsaved wish on error, rejects unsafe links, and allows retrying'
 
 test('edits all wishlist fields and preserves the draft after a rejected save', async () => {
   renderPage();
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   expect(screen.getByLabelText('Ссылки')).toHaveValue(wish.links[0]);
   fireEvent.change(screen.getByLabelText('Описание'), { target: { value: 'Новый сорт' } });
@@ -288,7 +316,7 @@ test('locks a pending transfer and leaves the wish available after failure', asy
   fireEvent.click(trigger);
   expect(updateDoc).toHaveBeenCalledTimes(1);
   expect(trigger).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Редактировать' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Действия с растением' })).toBeDisabled();
   await act(async () => reject(new Error('offline')));
   expect(screen.getByRole('alert')).toHaveTextContent('Не удалось перенести растение');
   expect(trigger).toBeEnabled();
@@ -299,6 +327,7 @@ test('locks a pending transfer and leaves the wish available after failure', asy
 
 test('moves a wish to its own trash and restores it into the wishlist', async () => {
   renderPage();
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Удалить' }));
   await waitFor(() => expect(screen.queryByRole('listitem')).not.toBeInTheDocument());
   expect(deleteDoc).not.toHaveBeenCalled();

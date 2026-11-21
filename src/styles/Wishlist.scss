@@ -36,12 +36,33 @@
 
 .plantListWrap .wishlistCard {
   .wishlistCardContent { width: 100%; min-width: 0; }
+  .wishlistCardLayout {
+    display: grid;
+    grid-template-columns: minmax(0, min(#{rem.convert(150px)}, 40%)) minmax(0, 1fr);
+    align-items: start;
+    gap: rem.convert(20px);
+  }
+  .wishlistCardMedia,
+  .wishlistCardInfo { min-width: 0; }
+  .wishlistCardHeader {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: rem.convert(12px);
+  }
+  .wishlistCardInfo .wishlistDetails { margin: rem.convert(16px 0 0); }
+  .wishlistCardInfo .wishlistHint { margin: rem.convert(16px 0 0); overflow-wrap: anywhere; }
   .wishlistCardActions {
+    flex: 0 0 rem.convert(158px);
+    width: rem.convert(158px);
+    margin-left: auto;
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: rem.convert(10px);
-    margin-bottom: rem.convert(16px);
+
+    .wishlistMoreActions { display: flex; gap: rem.convert(10px); }
 
     .btn {
       width: rem.convert(40px);
@@ -57,16 +78,18 @@
       span img { width: rem.convert(24px); height: rem.convert(24px); }
     }
     .wishlistAcquire {
-      width: auto;
-      max-width: 100%;
-      height: auto;
-      min-height: rem.convert(40px);
-      padding: rem.convert(8px 10px);
-      gap: rem.convert(6px);
-      line-height: 1.3;
+      flex: 0 0 rem.convert(108px);
+      width: rem.convert(108px);
+      height: rem.convert(40px);
+      padding: rem.convert(4px);
+      gap: rem.convert(2px);
+      line-height: 1;
+      white-space: nowrap;
+
+      span img { width: rem.convert(16px); height: rem.convert(16px); }
     }
   }
-  .wishlistName { font-size: rem.convert(22px); line-height: 1.2; overflow-wrap: anywhere; margin-bottom: rem.convert(12px); }
-  .wishlistPhoto { display: block; width: 100%; max-height: rem.convert(280px); object-fit: contain; border-radius: rem.convert(5px); }
+  .wishlistName { flex: 1 1 rem.convert(150px); min-width: 0; margin: 0; font-size: rem.convert(22px); line-height: 1.2; overflow-wrap: anywhere; }
+  .wishlistPhoto { display: block; width: 100%; object-fit: cover; border-radius: rem.convert(5px); }
   :is(button, a, input, textarea):focus-visible { outline: 2px solid #009432; outline-offset: 3px; }
 }
