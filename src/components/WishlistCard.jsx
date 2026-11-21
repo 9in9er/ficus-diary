@@ -50,7 +50,7 @@ export default function WishlistCard({ plant, actions, editor, isTrash, isPendin
           <h3 className='wishlistName'>{plant.name}</h3>
           <PlantPhoto plant={plant} className='wishlistPhoto' />
           <WishlistDetails plant={plant} />
-          {isTrash && <p className='wishlistHint'>Удалено: {formatDate(plant.deletedAt)}. Автоматическое удаление отключено.</p>}
+          {isTrash && <p className='wishlistHint'>Удалено: {formatDate(plant.deletedAt)}. Хранится в корзине до удаления вручную.</p>}
         </>}
       </div>
       {confirmDelete && <ModalDialog labelledBy={`deleteWish-${plant.id}`} onClose={() => setConfirmDelete(false)} isBusy={isPending}>

@@ -29,11 +29,46 @@ test('new plant with photo keeps its ID on retry and does not create a partial d
   expect(addDoc).not.toHaveBeenCalled();
 });
 
-test('editing metadata never rewrites old base64 or photoKey', async () => {
+test.each(['savePlant', 'saveWish'])('%s metadata never writes photo or photoKey, including null and undefined', async (action) => {
   const { result } = renderHook(() => usePlants(user));
-  await result.current.actions.savePlant('plant', { name: 'Ficus', acquiredAt: '', photo: 'legacy-base64', photoKey: 'old-key' });
-  expect(updateDoc).toHaveBeenCalledWith({ id: 'plant' }, { name: 'Ficus', acquiredAt: '' });
+  for (const extra of [{}, { photo: null }, { photo: undefined }]) {
+    await result.current.actions[action]('plant', { name: 'Ficus', acquiredAt: '', photoKey: 'stored-key', ...extra });
+  }
+  expect(updateDoc).toHaveBeenCalledTimes(3);
+  for (const [ref, fields] of updateDoc.mock.calls) {
+    expect(ref).toEqual({ id: 'plant' });
+    expect(fields.name).toBe('Ficus');
+    expect(fields).not.toHaveProperty('photo');
+    expect(fields).not.toHaveProperty('photoKey');
+  }
   expect(savePlantPhoto).not.toHaveBeenCalled();
+});
+
+test.each(['createPlant', 'createWish'])('%s without a file never writes photo, photoKey, or photoBlob', async (action) => {
+  const { result } = renderHook(() => usePlants(user));
+  await result.current.actions[action]({ name: 'Ficus', acquiredAt: '', photoKey: null, photoBlob: null });
+  expect(addDoc).toHaveBeenCalledTimes(1);
+  const fields = addDoc.mock.calls[0][1];
+  expect(fields).not.toHaveProperty('photo');
+  expect(fields).not.toHaveProperty('photoKey');
+  expect(fields).not.toHaveProperty('photoBlob');
+  expect(savePlantPhoto).not.toHaveBeenCalled();
+});
+
+test.each(['createPlant', 'createWish', 'savePlant', 'saveWish'])('%s with a file sends only metadata fields to the photo service', async (action) => {
+  const draft = { name: 'Ficus', acquiredAt: '', photoKey: 'stored-key', photoBlob: new Blob(['webp'], { type: 'image/webp' }) };
+  const { result } = renderHook(() => usePlants(user));
+  if (action.startsWith('create')) await result.current.actions[action](draft);
+  else await result.current.actions[action]('plant', draft);
+  expect(savePlantPhoto).toHaveBeenCalledTimes(1);
+  const options = savePlantPhoto.mock.calls[0][1];
+  expect(options.blob).toBe(draft.photoBlob);
+  expect(options.fields.name).toBe('Ficus');
+  expect(options.fields).not.toHaveProperty('photo');
+  expect(options.fields).not.toHaveProperty('photoKey');
+  expect(options.fields).not.toHaveProperty('photoBlob');
+  expect(addDoc).not.toHaveBeenCalled();
+  expect(updateDoc).not.toHaveBeenCalled();
 });
 
 test.each([
@@ -63,7 +98,7 @@ test('invalid URL drafts never reach Firestore or the photo API', async () => {
 
 test('opening old trash never automatically deletes records; permanent deletion uses API', async () => {
   onSnapshot.mockImplementation((query, cb) => {
-    cb({ docs: [{ id: 'old-trash', data: () => ({ name: 'Ficus', deletedAt: '2020-01-01', photo: 'legacy' }) }] });
+    cb({ docs: [{ id: 'old-trash', data: () => ({ name: 'Ficus', deletedAt: '2020-01-01', photoKey: 'stored-key' }) }] });
     return jest.fn();
   });
   const { result } = renderHook(() => usePlants(user));

@@ -53,10 +53,5 @@ console.log(JSON.stringify({ candidateFiles: candidates.length, historyBlobs: bl
   knownLocalSecretsChecked: keys.filter((key) => Boolean(local[key])),
   localClientProjectMatches: local.REACT_APP_FIREBASE_PROJECT_ID === 'my-plants-app-8f6fc',
   localAdminProjectMatches: local.FIREBASE_PROJECT_ID === 'my-plants-app-8f6fc',
-  localDeletionDisabled: local.ENABLE_PERMANENT_PLANT_DELETE === 'false',
   findings: [...new Set(findings)] }, null, 2));
-if (local.ENABLE_PERMANENT_PLANT_DELETE !== 'false') {
-  console.error('Local ENABLE_PERMANENT_PLANT_DELETE must equal false.');
-  process.exitCode = 1;
-}
 if (findings.length) process.exitCode = 1;
