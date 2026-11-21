@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import usePlantPhoto from '../hooks/usePlantPhoto';
 import { isHttpPhotoUrl } from '../utils/photoUrl';
 import ModalDialog from './ModalDialog';
+import closeIcon from '../i/icons/close.svg';
 import '../styles/PlantPhoto.scss';
 
 export default function PlantPhoto({ plant, className, alt = plant.name, lazy = true, variant = 'thumbnail', zoomable = lazy }) {
@@ -39,7 +40,10 @@ export default function PlantPhoto({ plant, className, alt = plant.name, lazy = 
     {hasPhoto && zoomable && expandedPhoto === originalIdentity && <ModalDialog labelledBy={titleId}
       className='plantPhotoDialog' onClose={() => setExpandedPhoto(null)}>
       <h2 id={titleId}>{alt}</h2>
-      <button type='button' className='btn' onClick={() => setExpandedPhoto(null)}>Закрыть</button>
+      <button type='button' className='plantPhotoClose' aria-label='Закрыть' title='Закрыть'
+        onClick={() => setExpandedPhoto(null)}>
+        <img src={closeIcon} alt='' aria-hidden='true' />
+      </button>
       <PlantPhoto plant={plant} className='plantPhotoFull' alt={alt} lazy={false} variant='original' zoomable={false} />
     </ModalDialog>}
   </>;
