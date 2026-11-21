@@ -57,6 +57,7 @@ test.each([false, true])('after base64 cleanup cards prefer thumbnail while prev
   await screen.findByRole('img', { name: cleaned.name });
   // A restored document retains both keys; editing uses the main version.
   rerender(<WishlistHarness plant={{ ...cleaned, deletedAt: null }} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   expect(await screen.findByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', '/original.webp');
   expect(photoRequest).toHaveBeenCalledWith(mockUser, { action: 'read', plantId: cleaned.id });
@@ -65,6 +66,7 @@ test.each([false, true])('after base64 cleanup cards prefer thumbnail while prev
 test('wishlist editing resolves a preview by photoKey even when photo is completely absent', async () => {
   render(<WishlistHarness plant={cleanedWish} />);
   await screen.findByRole('img', { name: cleanedWish.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   expect(screen.getByRole('form', { name: 'Данные растения в вишлисте' })).toBeInTheDocument();
   expect(await screen.findByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', '/test-object-photo.webp');
@@ -76,6 +78,7 @@ test('a wishlist plant without a photo renders and opens its editor without a br
   render(<WishlistHarness plant={wishWithoutPhoto} />);
   expect(screen.getByRole('listitem', { name: cleanedWish.name })).toBeInTheDocument();
   expect(screen.queryByRole('img', { name: cleanedWish.name })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   expect(screen.getByLabelText('Название растения')).toHaveValue(cleanedWish.name);
   expect(screen.queryByRole('img', { name: 'Предпросмотр фотографии' })).not.toBeInTheDocument();
@@ -88,6 +91,7 @@ test('preview can retry a failed temporary-link request without relying on base6
   await screen.findByRole('img', { name: cleanedWish.name });
   clearPlantPhotoCache();
   photoRequest.mockRejectedValueOnce(new Error('offline'));
+  fireEvent.click(screen.getByRole('button', { name: 'Действия с растением' }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   await screen.findByText('Не удалось загрузить фото.');
   fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
