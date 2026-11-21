@@ -66,17 +66,20 @@ function createPhotoService({ db, files = storage, now = () => Date.now(), delet
           });
         } else {
           // Old objects remain available for the existing permanent-delete flow.
-          tx.update(ref, { ...fields, photo, photoKey: null });
+          tx.update(ref, { ...fields, photo, photoKey: null, photoThumbKey: null });
         }
         return { photo };
       });
     }
 
     if (action === 'read') {
+      const variant = body.variant === undefined ? 'original' : body.variant;
+      if (!['original', 'thumbnail'].includes(variant)) fail(400, 'Некорректный вариант фотографии.');
       const plant = owned(await ref.get(), uid);
       if (!plant.photoKey) return { url: null };
-      if (!files.ownsPhotoKey(uid, plantId, plant.photoKey)) fail(409, 'Некорректный ключ фотографии.');
-      return { url: await files.readUrl(plant.photoKey), expiresIn: files.READ_SECONDS };
+      const key = variant === 'thumbnail' ? plant.photoThumbKey || plant.photoKey : plant.photoKey;
+      if (!files.ownsPhotoKey(uid, plantId, key)) fail(409, 'Некорректный ключ фотографии.');
+      return { url: await files.readUrl(key), expiresIn: files.READ_SECONDS };
     }
 
     if (action === 'upload') {
@@ -91,6 +94,7 @@ function createPhotoService({ db, files = storage, now = () => Date.now(), delet
       await db.collection('_photoUploads').doc(uploadId).set({
         uid, plantId, key, size: body.size, creating,
         previousKey: plant?.photoKey || null,
+        previousThumbKey: plant?.photoThumbKey || null,
         expiresAt: now() + 15 * 60 * 1000,
       });
       return { uploadId, url, expiresIn: files.UPLOAD_SECONDS };
@@ -105,45 +109,62 @@ function createPhotoService({ db, files = storage, now = () => Date.now(), delet
       // A lost HTTP response can be retried without creating another plant or file.
       if (ticket.committedKey) {
         const plant = owned(await ref.get(), uid);
-        if (plant.photoKey !== ticket.committedKey) fail(409, 'Фотография уже изменена.');
-        return { photoKey: ticket.committedKey };
+        if (plant.photoKey !== ticket.committedKey
+          || (ticket.committedThumbKey && plant.photoThumbKey !== ticket.committedThumbKey)) fail(409, 'Фотография уже изменена.');
+        return { photoKey: ticket.committedKey, ...(ticket.committedThumbKey ? { photoThumbKey: ticket.committedThumbKey } : {}) };
       }
       if (ticket.expiresAt < now()) fail(410, 'Срок загрузки истёк. Выберите фото ещё раз.');
       const current = await ref.get();
       if (ticket.creating ? current.exists : !current.exists) fail(409, 'Растение изменилось. Обновите страницу.');
       const plant = ticket.creating ? null : owned(current, uid, { writable: true });
-      if ((plant?.photoKey || null) !== ticket.previousKey) fail(409, 'Фото уже изменено в другой вкладке.');
+      if ((plant?.photoKey || null) !== ticket.previousKey
+        || (plant?.photoThumbKey || null) !== (ticket.previousThumbKey || null)) fail(409, 'Фото уже изменено в другой вкладке.');
       const isWishlisted = ticket.creating ? body.isWishlisted === true : !!plant.isWishlisted;
       const fields = plantFields(body.fields, isWishlisted);
       const bytes = await files.validateUpload(ticket.key, ticket.size);
-      const photoKey = await files.storePhoto(uid, plantId, bytes);
+      const keys = await files.storePhotoVersions(uid, plantId, bytes);
       // Do not delete on an ambiguous transaction error: the write may have committed.
       // Unreferenced uploads and old versions are removed only on permanent deletion.
-      return db.runTransaction(async (tx) => {
-        const [fresh, freshTicket] = await Promise.all([tx.get(ref), tx.get(ticketRef)]);
-        const latest = freshTicket.data();
-        if (!freshTicket.exists || latest.uid !== uid || latest.plantId !== plantId) fail(403, 'Нет доступа к загрузке.');
-        if (latest.committedKey) {
-          if (owned(fresh, uid).photoKey !== latest.committedKey) fail(409, 'Фото уже изменено.');
-          return { photoKey: latest.committedKey };
-        }
-        if (latest.expiresAt < now()) fail(410, 'Срок загрузки истёк.');
-        if (ticket.creating) {
-          if (fresh.exists) fail(409, 'Растение уже существует.');
-          tx.create(ref, { ...fields, photoKey, userId: uid, isWishlisted,
-            createdAt: new Date(now()).toISOString(), deletedAt: null, hidden: false, pinned: false,
-            ...(!isWishlisted ? { wateringLog: [], fertilizingLog: [], notes: [] } : {}),
-          });
-        } else {
-          const latestPlant = owned(fresh, uid, { writable: true });
-          if ((latestPlant.photoKey || null) !== ticket.previousKey || !!latestPlant.isWishlisted !== isWishlisted) {
-            fail(409, 'Растение изменилось. Обновите страницу.');
+      let result;
+      try {
+        result = await db.runTransaction(async (tx) => {
+          const [fresh, freshTicket] = await Promise.all([tx.get(ref), tx.get(ticketRef)]);
+          const latest = freshTicket.data();
+          if (!freshTicket.exists || latest.uid !== uid || latest.plantId !== plantId) fail(403, 'Нет доступа к загрузке.');
+          if (latest.committedKey) {
+            const latestPlant = owned(fresh, uid);
+            if (latestPlant.photoKey !== latest.committedKey
+              || (latest.committedThumbKey && latestPlant.photoThumbKey !== latest.committedThumbKey)) fail(409, 'Фото уже изменено.');
+            return { photoKey: latest.committedKey, ...(latest.committedThumbKey ? { photoThumbKey: latest.committedThumbKey } : {}) };
           }
-          tx.update(ref, { ...fields, photoKey }); // Preserve legacy photo, including base64.
-        }
-        tx.update(ticketRef, { committedKey: photoKey });
-        return { photoKey };
-      });
+          if (latest.expiresAt < now()) fail(410, 'Срок загрузки истёк.');
+          if (ticket.creating) {
+            if (fresh.exists) fail(409, 'Растение уже существует.');
+            tx.create(ref, { ...fields, ...keys, userId: uid, isWishlisted,
+              createdAt: new Date(now()).toISOString(), deletedAt: null, hidden: false, pinned: false,
+              ...(!isWishlisted ? { wateringLog: [], fertilizingLog: [], notes: [] } : {}),
+            });
+          } else {
+            const latestPlant = owned(fresh, uid, { writable: true });
+            if ((latestPlant.photoKey || null) !== ticket.previousKey
+              || (latestPlant.photoThumbKey || null) !== (ticket.previousThumbKey || null)
+              || !!latestPlant.isWishlisted !== isWishlisted) {
+              fail(409, 'Растение изменилось. Обновите страницу.');
+            }
+            tx.update(ref, { ...fields, ...keys }); // Preserve legacy photo, including base64.
+          }
+          tx.update(ticketRef, { committedKey: keys.photoKey, committedThumbKey: keys.photoThumbKey });
+          return keys;
+        });
+      } catch (error) {
+        // Explicit validation conflicts happen before writes. Never remove a pair
+        // on an ambiguous SDK failure: the atomic transaction may have committed.
+        if (error.status) await files.deletePhotoVersions(uid, plantId, keys);
+        throw error;
+      }
+      // Another concurrent commit may have won using the same upload ticket.
+      if (result.photoKey !== keys.photoKey) await files.deletePhotoVersions(uid, plantId, keys);
+      return result;
     }
 
     if (action === 'delete') {
@@ -156,6 +177,7 @@ function createPhotoService({ db, files = storage, now = () => Date.now(), delet
         if (plant.userId !== uid) fail(403, 'Нет доступа к растению.');
         if (!plant.deletedAt) fail(409, 'Сначала переместите растение в корзину.');
         if (plant.photoKey && !files.ownsPhotoKey(uid, plantId, plant.photoKey)) fail(409, 'Некорректный ключ фотографии.');
+        if (plant.photoThumbKey && !files.ownsPhotoKey(uid, plantId, plant.photoThumbKey)) fail(409, 'Некорректный ключ миниатюры.');
         tx.update(ref, { _photoDeleting: true });
       });
       await files.deletePlantFiles(uid, plantId);

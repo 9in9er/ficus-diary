@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { resizePlantPhoto } from '../utils/resizePlantPhoto';
 import { isHttpPhotoUrl } from '../utils/photoUrl';
 
-const emptyDraft = () => ({ id: null, name: '', acquiredAt: '', photoKey: null, photoBlob: null, photoSource: 'file', photoUrl: '', photoUrlStatus: 'loading', description: '', price: '', links: '' });
+const emptyDraft = () => ({ id: null, name: '', acquiredAt: '', photoKey: null, photo: null, photoBlob: null, photoSource: 'file', photoUrl: '', photoUrlStatus: 'loading', description: '', price: '', links: '' });
 
 export default function usePlantDraft() {
   const [draft, setDraft] = useState(emptyDraft);
@@ -19,6 +19,7 @@ export default function usePlantDraft() {
       name: plant.name,
       acquiredAt: plant.acquiredAt || '',
       photoKey: plant.photoKey || null,
+      photo: plant.photo || null,
       photoBlob: null,
       photoSource: !plant.photoKey && isHttpPhotoUrl(plant.photo) ? 'url' : 'file',
       photoUrl: !plant.photoKey && isHttpPhotoUrl(plant.photo) ? plant.photo : '',
