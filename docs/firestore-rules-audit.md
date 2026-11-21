@@ -1,13 +1,16 @@
 # Совместимость Firestore Rules с ficus-diary
 
 Проверены все рабочие исходники в `src`, `api`, `server`, `scripts`.
-Правила не публиковались; production-база и существующие фотографии не менялись.
+Окончательные правила находятся в [firestore.rules](../firestore.rules).
+В пятом этапе уборки их разрешения и ограничения не менялись; production-база,
+опубликованные Rules и существующие фотографии не изменялись.
 
-20.11.2026 действующие Rules прочитаны в Firebase Console; их тестовая копия —
-`tests/firestore/fixtures/production-2025-12-10.rules` (не цель публикации).
-Добавлены переходные `firestore.transition.rules` и 7 проверок перехода;
-общий прогон — 39 тестов. Порядок production-выпуска и ограничения старых
-вкладок: [production-release.md](production-release.md).
+Миграция фотографий и переход клиента завершены. Переходные правила, fixture
+старого состояния production и отдельный набор тестов перехода удалены.
+Проверка неизменённых защищённых полей перенесена в основной набор
+`tests/firestore/plants.rules.test.cjs`; запреты их записи сохранены и дополнены
+проверками `photo: null` для растений и вишлиста с `photoKey` и без него.
+История первого выпуска: [production-release.md](production-release.md).
 
 ## Все места записи в plants
 
@@ -18,7 +21,6 @@
 | `src/hooks/usePlants.jsx`, `updatePlant` | Единственный клиентский `updateDoc`; через него идут все перечисленные ниже изменения |
 | `server/photos.cjs`, `commit` | Firebase Admin `runTransaction`: `tx.create` растения/желания с фото или `tx.update` при замене фото |
 | `server/photos.cjs`, `delete` | Две Firebase Admin транзакции: `tx.update({_photoDeleting: true})`, затем `tx.delete` после удаления файлов |
-| `scripts/migrate-photos.cjs`, `migratePlant` | Отдельная Firebase Admin транзакция с `tx.update({photoKey})`; скрипт автоматически не вызывается |
 
 Клиентских `setDoc`, `deleteDoc`, `runTransaction` и `writeBatch` в рабочем
 приложении больше нет. В тестах эти вызовы используются для проверки запретов.
@@ -69,7 +71,7 @@
 для обычного растения также создаёт `wateringLog`, `fertilizingLog`, `notes`.
 Замена фото обновляет `name` и `acquiredAt` либо поля вишлиста, плюс `photoKey`.
 Окончательное удаление добавляет `_photoDeleting` и затем удаляет документ.
-Миграция добавляет только `photoKey`, сохраняя `photo`.
+Миграция фотографий завершена; клиентское отображение по старому `photo` удалено.
 
 Эти операции используют **Firebase Admin SDK**, который обходит клиентские
 Security Rules. Поэтому добавлять `photoKey`/`_photoDeleting` в клиентские
@@ -130,6 +132,11 @@ npm.cmd run test:rules
 защищённые поля при create/update/merge/full set/transaction/batch, корзина,
 блокировка удаления, приватность `_photoUploads`, совместимость старых фото
 и редактирования после серверной загрузки.
+
+Неизменённые защищённые поля не мешают правкам метаданных. Клиент не может
+добавить даже `photo: null` при создании или обновлении документа. Исторические
+значения в искусственных данных проверяют ограничения Rules, а не поддержку
+старого формата фотографий в приложении.
 
 Отдельный интеграционный тест вызывает **настоящий сервис** `createPhotoService`
 с реальным Admin SDK и локальными транзакциями Firestore Emulator: создание

@@ -221,7 +221,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                             {formatDate(plant.deletedAt)}
                         </p>
 
-                        <p>Автоматическое удаление отключено.</p>
+                        <p>Хранится в корзине до удаления вручную.</p>
 
                     </div>
                   )}

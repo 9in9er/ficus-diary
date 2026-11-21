@@ -15,7 +15,7 @@ jest.mock('firebase/firestore', () => ({
   collection: jest.fn(), query: jest.fn(), where: jest.fn(), doc: jest.fn(),
   onSnapshot: jest.fn(), addDoc: jest.fn(), updateDoc: jest.fn(), deleteDoc: jest.fn(),
 }));
-jest.mock('../utils/resizePlantPhoto', () => ({ resizePlantPhoto: jest.fn(async () => 'data:image/png;base64,photo') }));
+jest.mock('../utils/resizePlantPhoto', () => ({ resizePlantPhoto: jest.fn() }));
 jest.mock('../i/icons/grid-3-columns.svg', () => ({ ReactComponent: () => <svg /> }));
 jest.mock('../i/icons/grid-4-columns.svg', () => ({ ReactComponent: () => <svg /> }));
 jest.mock('../i/icons/grid-8-columns.svg', () => ({ ReactComponent: () => <svg /> }));
@@ -23,7 +23,7 @@ jest.mock('../i/icons/grid-1-column.svg', () => ({ ReactComponent: () => <svg />
 jest.mock('../i/icons/grid-2-columns.svg', () => ({ ReactComponent: () => <svg /> }));
 
 const wish = {
-  id: 'wish-1', name: 'Алоказия фрайдек', photo: 'data:image/png;base64,photo',
+  id: 'wish-1', name: 'Алоказия фрайдек',
   description: 'Вариегатная, небольшой куст', price: '1 500–2 000 ₽',
   links: ['https://example.com/plant'], isWishlisted: true,
   deletedAt: null, createdAt: '2026-11-18T12:00:00.000Z',
@@ -111,8 +111,7 @@ test('adds a wish with a photo, optional details and normalized links', async ()
 });
 
 test('edits a key-only wish with a temporary-link preview and preserves the key without recreating photo', async () => {
-  const { photo, ...withoutPhoto } = wish;
-  records = [ordinary, { ...withoutPhoto, photoKey: 'published-key' }];
+  records = [ordinary, { ...wish, photoKey: 'published-key' }];
   photoRequest.mockResolvedValue({ url: '/published-wish.webp', expiresIn: 600 });
   renderPage();
   await screen.findByRole('img', { name: wish.name });
@@ -132,8 +131,7 @@ test('edits a key-only wish with a temporary-link preview and preserves the key 
 });
 
 test('replaces a key-only photo, ignores late read results, and revokes local previews on replacement and save', async () => {
-  const { photo, ...withoutPhoto } = wish;
-  records = [ordinary, { ...withoutPhoto, photoKey: 'published-key' }];
+  records = [ordinary, { ...wish, photoKey: 'published-key' }];
   const firstBlob = new Blob(['first'], { type: 'image/webp' });
   const secondBlob = new Blob(['second'], { type: 'image/webp' });
   resizePlantPhoto.mockResolvedValueOnce(firstBlob).mockResolvedValueOnce(secondBlob);
@@ -177,8 +175,7 @@ test('replaces a key-only photo, ignores late read results, and revokes local pr
 });
 
 test('cancelling a photo replacement restores the key-only stored preview and releases the local Blob URL', async () => {
-  const { photo, ...withoutPhoto } = wish;
-  records = [ordinary, { ...withoutPhoto, photoKey: 'published-key' }];
+  records = [ordinary, { ...wish, photoKey: 'published-key' }];
   jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:cancelled-replacement');
   const revoke = jest.spyOn(URL, 'revokeObjectURL');
   photoRequest.mockResolvedValue({ url: '/published-wish.webp', expiresIn: 600 });
@@ -197,8 +194,7 @@ test('cancelling a photo replacement restores the key-only stored preview and re
 });
 
 test('acquiring a key-only wish keeps its photograph in the collection without legacy photo', async () => {
-  const { photo, ...withoutPhoto } = wish;
-  records = [ordinary, { ...withoutPhoto, photoKey: 'published-key' }];
+  records = [ordinary, { ...wish, photoKey: 'published-key' }];
   photoRequest.mockResolvedValue({ url: '/published-wish.webp', expiresIn: 600 });
   renderPage();
   await screen.findByRole('img', { name: wish.name });
@@ -215,12 +211,13 @@ test('acquiring a key-only wish keeps its photograph in the collection without l
   expect(deleteDoc).not.toHaveBeenCalled();
 });
 
-test('legacy wishlist photographs in trash remain visible without temporary-link requests', () => {
-  records = [ordinary, { ...wish, deletedAt: '2026-11-19T12:00:00Z' }];
+test('wishlist photographs in trash resolve temporary links by photoKey', async () => {
+  records = [ordinary, { ...wish, photoKey: 'stored-key', deletedAt: '2026-11-19T12:00:00Z' }];
+  photoRequest.mockResolvedValue({ url: '/trash-wish.webp', expiresIn: 600 });
   renderPage();
   fireEvent.click(screen.getByRole('button', { name: 'Корзина · 1' }));
-  expect(screen.getByRole('img', { name: wish.name })).toHaveAttribute('src', wish.photo);
-  expect(photoRequest).not.toHaveBeenCalled();
+  expect(await screen.findByRole('img', { name: wish.name })).toHaveAttribute('src', '/trash-wish.webp');
+  expect(photoRequest).toHaveBeenCalledWith({ uid: 'user-1' }, { action: 'read', plantId: wish.id });
 });
 
 test('keeps an unsaved wish on error, rejects unsafe links, and allows retrying', async () => {
@@ -239,6 +236,7 @@ test('keeps an unsaved wish on error, rejects unsafe links, and allows retrying'
   fireEvent.submit(screen.getByRole('form'));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   expect(addDoc).toHaveBeenCalledTimes(2);
+  for (const [, fields] of addDoc.mock.calls) expect(fields).not.toHaveProperty('photo');
 });
 
 test('edits all wishlist fields and preserves the draft after a rejected save', async () => {
@@ -255,6 +253,10 @@ test('edits all wishlist fields and preserves the draft after a rejected save', 
   await waitFor(() => expect(screen.queryByRole('form')).not.toBeInTheDocument());
   expect(screen.getByText('Новый сорт')).toBeInTheDocument();
   expect(screen.getByText('800 ₽')).toBeInTheDocument();
+  for (const [, fields] of updateDoc.mock.calls) {
+    expect(fields).not.toHaveProperty('photo');
+    expect(fields).not.toHaveProperty('photoKey');
+  }
 });
 
 test('moves the same record into the collection with today’s date and shows a regular plant card', async () => {
@@ -272,7 +274,7 @@ test('moves the same record into the collection with today’s date and shows a 
   expect(card.queryByText(wish.description)).not.toBeInTheDocument();
   expect(card.queryByText(wish.price)).not.toBeInTheDocument();
   expect(card.queryByRole('link', { name: 'example.com' })).not.toBeInTheDocument();
-  expect(card.getByRole('img', { name: wish.name })).toHaveAttribute('src', wish.photo);
+  expect(card.queryByRole('img', { name: wish.name })).not.toBeInTheDocument();
   expect(card.getByRole('button', { name: 'iconEmojiDroplet' })).toBeEnabled();
   expect(card.getByText(/Дата появления/).parentElement).toHaveTextContent(new Date().toLocaleDateString('ru-RU'));
 });

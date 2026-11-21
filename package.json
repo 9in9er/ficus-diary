@@ -31,7 +31,7 @@
     "test:rules": "firebase emulators:exec --config firebase.rules-test.json --project demo-ficus-diary-rules --only firestore \"node --test --test-concurrency=1 tests/firestore/*.test.cjs\"",
     "migrate:photos": "node --env-file-if-exists=.env.local scripts/migrate-photos.cjs",
     "migrate:remaining-photos": "node --env-file-if-exists=.env.local scripts/migrate-remaining-photos.cjs",
-    "verify:photos": "node --env-file-if-exists=.env.local scripts/verify-photo-migration.cjs",
+    "verify:photos": "node --env-file-if-exists=.env.local scripts/verify-photos.cjs",
     "diagnose:photos": "node --env-file-if-exists=.env.local scripts/diagnose-photo-migration.cjs",
     "diagnose:photo-storage": "node --env-file-if-exists=.env.local scripts/diagnose-photo-storage.cjs",
     "backfill:photo-thumbnails": "node --env-file-if-exists=.env.local scripts/backfill-photo-thumbnails.cjs",
