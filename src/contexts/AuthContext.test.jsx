@@ -3,9 +3,11 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { AuthProvider } from './AuthContext';
 import { useAuth } from '../hooks/useAuth';
+import { clearPlantPhotoCache } from '../services/plantPhotoCache';
 
 jest.mock('../firebase', () => ({ auth: {} }));
 jest.mock('firebase/auth', () => ({ onAuthStateChanged: jest.fn(), signOut: jest.fn() }));
+jest.mock('../services/plantPhotoCache', () => ({ clearPlantPhotoCache: jest.fn() }));
 
 function UserStatus({ label }) {
   const { user, authLoading } = useAuth();
@@ -36,6 +38,7 @@ test('shares one authentication subscription between consumers and cleans it up'
   expect(screen.getByText('A: plant@example.com')).toBeInTheDocument();
   expect(screen.getByText('B: plant@example.com')).toBeInTheDocument();
   act(() => onAuthStateChanged.mock.calls[0][1](null));
+  expect(clearPlantPhotoCache).toHaveBeenCalledTimes(2);
   expect(screen.getByText('A: guest')).toBeInTheDocument();
   expect(screen.getByText('B: guest')).toBeInTheDocument();
   unmount();
@@ -47,4 +50,5 @@ test('navigates to login after signing out', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
   expect(await screen.findByText('/login')).toBeInTheDocument();
   expect(signOut).toHaveBeenCalledTimes(1);
+  expect(clearPlantPhotoCache).toHaveBeenCalledTimes(1);
 });

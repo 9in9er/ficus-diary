@@ -124,12 +124,55 @@ for (const [operation, patch] of changes) {
   });
 }
 
-for (const [field, value] of Object.entries({ userId: 'bob', photo: 'new-base64', photoKey: 'attacker/key', _photoDeleting: true })) {
+test('post-migration key-only and no-photo documents permit every current metadata operation', async () => {
+  for (const photoFields of [{ photoKey: key }, { photoKey: key, photoThumbKey: key.replace('12345678-', '22345678-') }, {}]) {
+    for (const [, patch] of changes) {
+      const original = { ...base(), ...photoFields, historicalField: 'preserve',
+        acquiredAt: '', createdAt: '2020-01-01', isWishlisted: true,
+        wateringLog: ['old'], fertilizingLog: ['old'], notes: [{ id: 'old', text: 'Old note' }],
+        pinned: !patch.pinned, hidden: !patch.hidden, replanted: !patch.replanted,
+        deletedAt: patch.deletedAt === null ? DATE : null };
+      await seed(original);
+      await assertSucceeds(updateDoc(plantRef(), patch));
+      const stored = (await assertSucceeds(getDoc(plantRef()))).data();
+      assert.deepEqual(stored, { ...original, ...patch });
+      assert.equal(Object.hasOwn(stored, 'photo'), false);
+    }
+  }
+});
+
+test('final rules restore 47 synthetic legacy trash plants without losing base64 or care history', async () => {
+  // Synthetic data only: no production IDs, documents, credentials or photos.
+  for (let index = 0; index < 47; index++) {
+    const id = `legacy-trash-${index}`;
+    const original = { ...legacy(), deletedAt: '2020-01-01T00:00:00.000Z',
+      isWishlisted: index % 2 === 0, wateringLog: [DATE], fertilizingLog: [DATE],
+      notes: [{ id: 'note', text: 'Keep care history', createdAt: DATE }] };
+    await seed(original, id);
+    const ref = plantRef(client(), id);
+    await assertSucceeds(updateDoc(ref, { deletedAt: null }));
+    const stored = (await assertSucceeds(getDoc(ref))).data();
+    assert.deepEqual(stored, { ...original, deletedAt: null });
+    assert.equal(Object.hasOwn(stored, 'photoKey'), false);
+    // Restoring does not migrate the photo, and subsequent care edits still work.
+    await assertSucceeds(updateDoc(ref, { name: 'Restored plant', wateringLog: [] }));
+    assert.equal((await getDoc(ref)).data().photo, original.photo);
+  }
+});
+
+test('final rules reject old forms adding photo:null to cleaned documents and photo:null on create', async () => {
+  await seed({ ...base(), photoKey: key });
+  await assertFails(updateDoc(plantRef(), { name: 'Old form', photo: null }));
+  await assertFails(setDoc(plantRef(client(), 'new'), { ...base(), photo: null }));
+  assert.deepEqual((await getDoc(plantRef())).data(), { ...base(), photoKey: key });
+});
+
+for (const [field, value] of Object.entries({ userId: 'bob', photo: 'new-base64', photoKey: 'attacker/key', photoThumbKey: 'attacker/thumb', _photoDeleting: true })) {
   test(`client cannot create, add, overwrite or remove protected ${field}`, async () => {
     const db = client();
     if (field !== 'userId') await assertFails(setDoc(plantRef(db, 'new'), { ...base(), [field]: value }));
     else await assertFails(setDoc(plantRef(db, 'new'), { ...base(), userId: 'bob' }));
-    await seed({ ...legacy(), photoKey: key, _photoDeleting: false });
+    await seed({ ...legacy(), photoKey: key, photoThumbKey: key.replace('12345678-', '22345678-'), _photoDeleting: false });
     await assertFails(updateDoc(plantRef(db), { [field]: value }));
     await assertFails(updateDoc(plantRef(db), { [field]: deleteField() }));
     // A full replacement cannot silently drop protected fields.
@@ -227,7 +270,11 @@ test('real server photo service uses Admin transactions successfully under these
     plantPrefix, ownsPhotoKey,
     signUpload: async () => 'https://storage.invalid/upload',
     validateUpload: async () => Buffer.from('local-fake-photo'),
-    storePhoto: async (uid, plantId) => `${plantPrefix(uid, plantId)}photos/00000000-0000-0000-0000-${String(++sequence).padStart(12, '0')}.webp`,
+    storePhotoVersions: async (uid, plantId) => ({
+      photoKey: `${plantPrefix(uid, plantId)}photos/00000000-0000-0000-0000-${String(++sequence).padStart(12, '0')}.webp`,
+      photoThumbKey: `${plantPrefix(uid, plantId)}photos/00000000-0000-0000-0000-${String(++sequence).padStart(12, '0')}.webp`,
+    }),
+    deletePhotoVersions: async () => {},
     readUrl: async () => 'https://storage.invalid/read',
     deletePlantFiles: async () => {},
   };
@@ -239,14 +286,32 @@ test('real server photo service uses Admin transactions successfully under these
     const created = await service('alice', { action: 'commit', plantId, uploadId: ticket.uploadId, fields, isWishlisted });
     const ref = plantRef(client(), plantId);
     assert.equal((await assertSucceeds(getDoc(ref))).data().photoKey, created.photoKey);
+    assert.equal((await assertSucceeds(getDoc(ref))).data().photoThumbKey, created.photoThumbKey);
     await assertSucceeds(updateDoc(ref, { pinned: true }));
     await assertFails(updateDoc(ref, { photoKey: 'client-replacement' }));
+    await assertFails(updateDoc(ref, { photoThumbKey: 'client-thumbnail' }));
     const replacement = await service('alice', { action: 'upload', plantId, size: 100 });
     const updated = await service('alice', { action: 'commit', plantId, uploadId: replacement.uploadId, fields });
     assert.notEqual(updated.photoKey, created.photoKey);
+    assert.notEqual(updated.photoThumbKey, created.photoThumbKey);
+    await assertSucceeds(updateDoc(ref, { deletedAt: DATE }));
+    await assertSucceeds(updateDoc(ref, { deletedAt: null }));
+    assert.equal((await getDoc(ref)).data().photoThumbKey, updated.photoThumbKey);
     await assertSucceeds(updateDoc(ref, { deletedAt: DATE }));
     await assertFails(deleteDoc(ref));
     await service('alice', { action: 'delete', plantId });
     assert.equal((await admin.collection('plants').doc(plantId).get()).exists, false);
   }
+  const original = { ...legacy(), deletedAt: DATE };
+  await seed(original);
+  await assertSucceeds(updateDoc(plantRef(), { deletedAt: null }));
+  assert.deepEqual(await service('alice', { action: 'read', plantId: 'plant' }), { url: null });
+  const ticket = await service('alice', { action: 'upload', plantId: 'plant', size: 100 });
+  const committed = await service('alice', { action: 'commit', plantId: 'plant', uploadId: ticket.uploadId,
+    fields: { name: 'Restored with new photo', acquiredAt: '' } });
+  const restored = (await assertSucceeds(getDoc(plantRef()))).data();
+  assert.equal(restored.photo, original.photo);
+  assert.equal(restored.photoKey, committed.photoKey);
+  assert.equal(restored.deletedAt, null);
+  await assertSucceeds(updateDoc(plantRef(), { wateringLog: [DATE] }));
 });

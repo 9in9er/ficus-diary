@@ -5,6 +5,7 @@ import PlantsPage from './PlantsPage';
 import { getLocalDate } from '../utils/plantDates';
 import { resizePlantPhoto } from '../utils/resizePlantPhoto';
 import { photoRequest, savePlantPhoto } from '../services/plantPhotos';
+import { clearPlantPhotoCache } from '../services/plantPhotoCache';
 
 jest.mock('../services/plantPhotos', () => ({ photoRequest: jest.fn(), savePlantPhoto: jest.fn() }));
 
@@ -46,6 +47,7 @@ function renderPage(path = '/wishlist') {
 }
 
 beforeEach(() => {
+  clearPlantPhotoCache();
   jest.resetAllMocks();
   localStorage.clear();
   records = [ordinary, wish];
@@ -139,6 +141,7 @@ test('replaces a key-only photo, ignores late read results, and revokes local pr
   renderPage();
   await screen.findByRole('img', { name: wish.name });
   let finishOldRead;
+  clearPlantPhotoCache();
   photoRequest.mockImplementationOnce(() => new Promise((resolve) => { finishOldRead = resolve; }));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   await act(async () => fireEvent.change(screen.getByLabelText('Фотография растения'), {

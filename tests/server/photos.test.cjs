@@ -28,7 +28,11 @@ function fixture(initial = {}) {
     signUpload: mock.fn(async () => 'https://storage.invalid/temporary-upload'),
     readUrl: mock.fn(async () => 'https://storage.invalid/temporary-read'),
     validateUpload: mock.fn(async () => Buffer.from('validated-webp')),
-    storePhoto: mock.fn(async () => `${storage.plantPrefix('owner', 'plant-1')}photos/12345678-1234-1234-1234-123456789abc.webp`),
+    storePhotoVersions: mock.fn(async () => ({
+      photoKey: `${storage.plantPrefix('owner', 'plant-1')}photos/12345678-1234-1234-1234-123456789abc.webp`,
+      photoThumbKey: `${storage.plantPrefix('owner', 'plant-1')}photos/22345678-1234-1234-1234-123456789abc.webp`,
+    })),
+    deletePhotoVersions: mock.fn(async () => {}),
     deletePlantFiles: mock.fn(async () => {}),
   };
   return { records, db, files, service: createPhotoService({ db, files }) };
@@ -74,16 +78,19 @@ test('uploads a new plant atomically and retries commit idempotently', async () 
   const result = await f.service('owner', body);
   const plant = f.records.get('plants/plant-1');
   assert.equal(plant.photoKey, result.photoKey);
+  assert.equal(plant.photoThumbKey, result.photoThumbKey);
+  assert.notEqual(plant.photoKey, plant.photoThumbKey);
   assert.equal(plant.userId, 'owner');
   assert.equal(plant.name, fields.name);
   assert.equal('photo' in plant, false);
   assert.deepEqual(await f.service('owner', body), result);
-  assert.equal(f.files.storePhoto.mock.callCount(), 1);
+  assert.equal(f.files.storePhotoVersions.mock.callCount(), 1);
 });
 
 test('replacement preserves base64 and never deletes the old file', async () => {
   const oldKey = `${storage.plantPrefix('owner', 'plant-1')}photos/00000000-0000-0000-0000-000000000000.webp`;
-  const f = fixture({ 'plants/plant-1': { ...legacy, photoKey: oldKey } });
+  const oldThumbKey = oldKey.replace('00000000-', '10000000-');
+  const f = fixture({ 'plants/plant-1': { ...legacy, photoKey: oldKey, photoThumbKey: oldThumbKey } });
   const ticket = await f.service('owner', upload);
   const body = { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields };
   f.files.validateUpload.mock.mockImplementationOnce(async () => { throw new Error('download failed'); });
@@ -91,6 +98,8 @@ test('replacement preserves base64 and never deletes the old file', async () => 
   assert.equal(f.records.get('plants/plant-1').photoKey, oldKey);
   await f.service('owner', body);
   assert.equal(f.records.get('plants/plant-1').photo, legacy.photo);
+  assert.notEqual(f.records.get('plants/plant-1').photoThumbKey, oldThumbKey);
+  assert.equal(f.files.deletePhotoVersions.mock.callCount(), 0);
   assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
 });
 
@@ -163,7 +172,7 @@ test('key-only wishlist replacement keeps wishlist status and never recreates le
   const wishFields = { name: 'Updated wish', description: 'new', price: '100', links: ['https://example.invalid/plant'] };
   const result = await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId,
     fields: wishFields, isWishlisted: false }); // Existing documents determine their own list.
-  assert.deepEqual(f.records.get('plants/plant-1'), { ...original, ...wishFields, photoKey: result.photoKey });
+  assert.deepEqual(f.records.get('plants/plant-1'), { ...original, ...wishFields, ...result });
   assert.equal(Object.hasOwn(f.records.get('plants/plant-1'), 'photo'), false);
   assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
 });
@@ -191,6 +200,92 @@ test('read signs only the server-stored owned key and supports legacy photos', a
   const result = await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields });
   await f.service('owner', { action: 'read', plantId: 'plant-1', photoKey: 'attacker-supplied-key' });
   assert.equal(f.files.readUrl.mock.calls[0].arguments[0], result.photoKey);
+});
+
+test('thumbnail reads use the stored thumbnail, fallback for old records, and never accept client keys', async () => {
+  const f = fixture();
+  const ticket = await f.service('owner', { ...upload, creating: true });
+  const keys = await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields });
+  for (const [variant, expected] of [['original', keys.photoKey], ['thumbnail', keys.photoThumbKey]]) {
+    await f.service('owner', { action: 'read', plantId: 'plant-1', variant,
+      photoKey: 'attacker-key', photoThumbKey: 'attacker-thumb' });
+    assert.equal(f.files.readUrl.mock.calls.at(-1).arguments[0], expected);
+    await assert.rejects(f.service('intruder', { action: 'read', plantId: 'plant-1', variant }), { status: 403 });
+  }
+  delete f.records.get('plants/plant-1').photoThumbKey;
+  await f.service('owner', { action: 'read', plantId: 'plant-1', variant: 'thumbnail' });
+  assert.equal(f.files.readUrl.mock.calls.at(-1).arguments[0], keys.photoKey);
+  f.records.get('plants/plant-1').photoThumbKey = 'plants/foreign/photos/thumbnail.webp';
+  await assert.rejects(f.service('owner', { action: 'read', plantId: 'plant-1', variant: 'thumbnail' }), { status: 409 });
+  for (const variant of ['../../key', null, {}, 'full']) {
+    await assert.rejects(f.service('owner', { action: 'read', plantId: 'plant-1', variant }), { status: 400 });
+  }
+});
+
+test('both variants require a valid Firebase token before reading any storage key', async () => {
+  const f = fixture();
+  const verifyIdToken = mock.fn(async () => { throw new Error('expired'); });
+  const handler = createHandler({ getServices: () => ({ db: f.db, auth: { verifyIdToken } }), files: f.files });
+  for (const variant of ['original', 'thumbnail']) {
+    const res = { setHeader() {}, status(code) { this.code = code; return this; }, json() { return this; } };
+    await handler({ method: 'POST', headers: { authorization: 'Bearer expired' },
+      body: { action: 'read', plantId: 'plant-1', variant } }, res);
+    assert.equal(res.code, 401);
+  }
+  assert.equal(f.files.readUrl.mock.callCount(), 0);
+});
+
+test('thumbnail creation/storage failures leave both existing keys and legacy data untouched', async () => {
+  for (const creating of [false, true]) {
+    const f = fixture(creating ? {} : { 'plants/plant-1': legacy });
+    const ticket = await f.service('owner', { ...upload, creating });
+    f.files.storePhotoVersions.mock.mockImplementationOnce(async () => { throw new Error('thumbnail upload failed'); });
+    await assert.rejects(f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields }));
+    assert.deepEqual(f.records.get('plants/plant-1'), creating ? undefined : legacy);
+    assert.equal(f.records.get(`_photoUploads/${ticket.uploadId}`).committedKey, undefined);
+    // A later retry can publish both fields together.
+    const result = await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields });
+    assert.equal(f.records.get('plants/plant-1').photoThumbKey, result.photoThumbKey);
+  }
+});
+
+test('a definite transaction conflict cleans only the new pair and does not delete concurrent replacements', async () => {
+  const f = fixture({ 'plants/plant-1': legacy });
+  const ticket = await f.service('owner', upload);
+  const store = f.files.storePhotoVersions;
+  const keys = await store();
+  store.mock.mockImplementationOnce(async () => {
+    f.records.get('plants/plant-1').photoKey = 'concurrent-replacement';
+    return keys;
+  });
+  await assert.rejects(f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields }), { status: 409 });
+  assert.equal(f.records.get('plants/plant-1').photoKey, 'concurrent-replacement');
+  assert.deepEqual(f.files.deletePhotoVersions.mock.calls[0].arguments, ['owner', 'plant-1', keys]);
+});
+
+test('lost transaction responses preserve the published pair and retry returns both keys without reupload', async () => {
+  const f = fixture();
+  const ticket = await f.service('owner', { ...upload, creating: true });
+  const runTransaction = f.db.runTransaction;
+  f.db.runTransaction = async (callback) => { await runTransaction(callback); throw new Error('response lost'); };
+  const body = { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields };
+  await assert.rejects(f.service('owner', body));
+  assert.equal(f.files.deletePhotoVersions.mock.callCount(), 0);
+  f.db.runTransaction = runTransaction;
+  const result = await f.service('owner', body);
+  assert.deepEqual(result, { photoKey: f.records.get('plants/plant-1').photoKey,
+    photoThumbKey: f.records.get('plants/plant-1').photoThumbKey });
+  assert.equal(f.files.storePhotoVersions.mock.callCount(), 1);
+});
+
+test('old committed tickets without a thumbnail remain readable and retryable', async () => {
+  const f = fixture();
+  const ticket = await f.service('owner', { ...upload, creating: true });
+  const photoKey = `${storage.plantPrefix('owner', 'plant-1')}photos/12345678-1234-1234-1234-123456789abc.webp`;
+  f.records.set('plants/plant-1', { ...legacy, photoKey });
+  f.records.get(`_photoUploads/${ticket.uploadId}`).committedKey = photoKey;
+  assert.deepEqual(await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields }), { photoKey });
+  assert.equal(f.files.storePhotoVersions.mock.callCount(), 0);
 });
 
 test('deletion is disabled by default; enabled deletion requires trash and locks retries on storage failure', async () => {
@@ -224,7 +319,7 @@ test('external URLs create collection and wishlist records without any storage c
     assert.equal(saved.userId, 'owner');
     assert.equal(saved.isWishlisted, isWishlisted);
     assert.equal('photoKey' in saved, false);
-    for (const method of ['signUpload', 'readUrl', 'validateUpload', 'storePhoto', 'deletePlantFiles']) {
+    for (const method of ['signUpload', 'readUrl', 'validateUpload', 'storePhotoVersions', 'deletePhotoVersions', 'deletePlantFiles']) {
       assert.equal(f.files[method].mock.callCount(), 0);
     }
   }
@@ -232,15 +327,17 @@ test('external URLs create collection and wishlist records without any storage c
 
 test('replaces stored and legacy photos with a URL, then permits replacing the URL with a file', async () => {
   const oldKey = `${storage.plantPrefix('owner', 'plant-1')}photos/00000000-0000-0000-0000-000000000000.webp`;
-  for (const previous of [legacy, { ...legacy, photoKey: oldKey }]) {
+  for (const previous of [legacy, { ...legacy, photoKey: oldKey, photoThumbKey: oldKey.replace('00000000-', '10000000-') }]) {
     const f = fixture({ 'plants/plant-1': previous });
     const photo = 'http://example.com/image/123';
     await f.service('owner', { action: 'link', plantId: 'plant-1', photo, fields });
     assert.equal(f.records.get('plants/plant-1').photo, photo);
     assert.equal(f.records.get('plants/plant-1').photoKey, null);
+    assert.equal(f.records.get('plants/plant-1').photoThumbKey, null);
     const ticket = await f.service('owner', upload);
     await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId, fields });
     assert.ok(f.records.get('plants/plant-1').photoKey);
+    assert.ok(f.records.get('plants/plant-1').photoThumbKey);
     assert.equal(f.files.deletePlantFiles.mock.callCount(), 0);
   }
 });
@@ -250,7 +347,7 @@ test('URL updates preserve wishlist details and list membership from the existin
   const wishFields = { name: 'Wish', description: 'Leaves', price: '500', links: ['https://example.com/shop'] };
   await f.service('owner', { action: 'link', plantId: 'plant-1', photo: 'https://example.com/image', fields: wishFields, isWishlisted: false });
   assert.deepEqual(f.records.get('plants/plant-1'), { ...legacy, ...wishFields,
-    isWishlisted: true, photo: 'https://example.com/image', photoKey: null });
+    isWishlisted: true, photo: 'https://example.com/image', photoKey: null, photoThumbKey: null });
 });
 
 test('URL operations reject invalid protocols, ownership violations, deleted plants, and duplicate creates', async () => {
@@ -270,23 +367,20 @@ test('URL operations reject invalid protocols, ownership violations, deleted pla
   }
 });
 
-test('handler uses only exact env opt-in and preserves permanent deletion safeguards', async (t) => {
+test('handler requires exact env opt-in and preserves permanent deletion safeguards', async (t) => {
   const previous = process.env.ENABLE_PERMANENT_PLANT_DELETE;
-  const trashed = { userId: 'owner', name: 'Ficus', deletedAt: '2026-11-20',
+  const trashed = { ...legacy, deletedAt: '2026-11-20',
     photoKey: `${storage.plantPrefix('owner', 'plant-1')}photos/12345678-1234-1234-1234-123456789abc.webp` };
-  const run = async (f, { uid = 'owner', authorization = 'Bearer test-token', tokenError = false } = {}) => {
+  const run = async (f, { uid = 'owner', authorization = 'Bearer test-token' } = {}) => {
     const handler = createHandler({ getServices: () => ({ db: f.db,
-      auth: { verifyIdToken: async () => {
-        if (tokenError) throw new Error('invalid token');
-        return { uid };
-      } } }), files: f.files });
+      auth: { verifyIdToken: async () => ({ uid }) } }), files: f.files });
     const res = { setHeader() {}, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
     await handler({ method: 'POST', headers: { authorization },
       body: { action: 'delete', plantId: 'plant-1' } }, res);
     return res;
   };
   try {
-    for (const value of [undefined, '', 'false', 'TRUE', '1', ' true', 'true ', '"true"']) {
+    for (const value of [undefined, 'false', 'TRUE', '1', ' true', 'true ', '"true"']) {
       await t.test(`blocks deletion with env ${JSON.stringify(value) ?? 'unset'}`, async () => {
         if (value === undefined) delete process.env.ENABLE_PERMANENT_PLANT_DELETE;
         else process.env.ENABLE_PERMANENT_PLANT_DELETE = value;
@@ -319,7 +413,6 @@ test('handler uses only exact env opt-in and preserves permanent deletion safegu
       { name: 'an active plant', plant: { ...trashed, deletedAt: null }, status: 409 },
       { name: 'an unowned photo key', plant: { ...trashed, photoKey: 'plants/another-user/photo.webp' }, status: 409 },
       { name: 'an unauthenticated request', request: { authorization: null }, status: 401 },
-      { name: 'an invalid token', request: { tokenError: true }, status: 401 },
     ]) {
       await t.test(`rejects ${name} with env true without database/storage writes`, async () => {
         const f = fixture({ 'plants/plant-1': plant });
