@@ -1,25 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from './useAuth';
-import { photoRequest } from '../services/plantPhotos';
+import { getPlantPhotoUrl, invalidatePlantPhotoUrl } from '../services/plantPhotoCache';
 
-export default function usePlantPhoto(plant) {
+export default function usePlantPhoto(plant, enabled = true, variant = 'original') {
   const { user } = useAuth();
+  const userId = user?.uid;
+  const userRef = useRef(user);
+  userRef.current = user;
   const [resolved, setResolved] = useState(null);
   const [failed, setFailed] = useState(false);
   const [revision, setRevision] = useState(0);
-  useEffect(() => { setFailed(false); }, [plant.photo, plant.photoKey]);
+  const requestVariant = variant === 'thumbnail' && plant.photoThumbKey ? 'thumbnail' : 'original';
+  const photoKey = requestVariant === 'thumbnail' ? plant.photoThumbKey : plant.photoKey;
+  useEffect(() => { setFailed(false); }, [plant.photo, photoKey, requestVariant]);
   useEffect(() => {
-    if (!plant.photoKey || !user) return undefined;
+    const requestUser = userRef.current;
+    if (!enabled || !plant.photoKey || !photoKey || !requestUser) return undefined;
     let cancelled = false;
     let timer;
     setFailed(false);
     const refresh = async () => {
       try {
-        const result = await photoRequest(user, { action: 'read', plantId: plant.id });
+        const url = await getPlantPhotoUrl(requestUser, plant.id, photoKey, requestVariant);
         if (cancelled) return;
-        setResolved({ uid: user.uid, key: plant.photoKey, url: result.url });
+        setResolved({ uid: userId, key: photoKey, variant: requestVariant, url });
         setFailed(false);
-        timer = setTimeout(refresh, Math.max(30, (result.expiresIn || 600) - 60) * 1000);
       } catch {
         if (cancelled) return;
         setFailed(true);
@@ -28,14 +33,25 @@ export default function usePlantPhoto(plant) {
     };
     refresh();
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [plant.id, plant.photoKey, user, revision]);
+  }, [enabled, plant.id, plant.photoKey, photoKey, requestVariant, userId, revision]);
 
-  const current = resolved?.uid === user?.uid && resolved?.key === plant.photoKey;
+  const current = !!plant.photoKey && resolved?.uid === userId && resolved?.key === photoKey && resolved?.variant === requestVariant;
   return {
-    src: (plant.photoKey && current && !failed && resolved.url) || plant.photo || null,
+    // Legacy data is a fallback after a failed read, not a second initial download.
+    src: enabled ? (plant.photoKey
+      ? (current && !failed && resolved.url) || (failed && plant.photo) || null
+      : plant.photo || null) : null,
     failed,
     revision,
-    retry: () => { setFailed(false); setRevision((value) => value + 1); },
-    onError: () => setFailed(true),
+    retry: () => {
+      if (current) invalidatePlantPhotoUrl(user.uid, photoKey, resolved.url, requestVariant);
+      setResolved(null);
+      setFailed(false);
+      setRevision((value) => value + 1);
+    },
+    onError: () => {
+      if (current) invalidatePlantPhotoUrl(user.uid, photoKey, resolved.url, requestVariant);
+      setFailed(true);
+    },
   };
 }

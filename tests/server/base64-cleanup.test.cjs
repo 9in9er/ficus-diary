@@ -3,11 +3,15 @@ const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
 const { Readable } = require('node:stream');
 const { spawnSync } = require('node:child_process');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
 const { FieldValue } = require('firebase-admin/firestore');
 const sharp = require('sharp');
 const storage = require('../../server/storage.cjs');
-const { PROJECT, APPLICATION_COMPATIBILITY, parseArgs, assertCompatibility, approximatePhotoFieldBytes,
+const { PROJECT, APPLICATION_COMPATIBILITY, parseArgs, assertCompatibility, resolveCompatibility, approximatePhotoFieldBytes,
   runCleanup, reportExitCode } = require('../../scripts/cleanup-base64-photos.cjs');
+const { PRODUCTION_ORIGIN, REQUIRED_FIX_COMMIT, CHECKS } = require('../../scripts/photo-cleanup-production-confirmation.cjs');
 
 const legacy = 'data:image/png;base64,UFJJVkFURV9JTUFHRQ==';
 const secret = 'https://private.invalid/?X-Amz-Signature=DO_NOT_LOG_SECRET';
@@ -107,6 +111,7 @@ test('CLI is dry-run by default; explicit apply, limit and stop options are stri
   assert.deepEqual(parseArgs([...args, '--apply', '--limit', '5', '--stop-on-error']),
     { project: PROJECT, apply: true, limit: 5, stopOnError: true });
   assert.equal(parseArgs([...args, '--dry-run']).apply, false);
+  assert.equal(parseArgs([...args, '--dry-run', '--include-trash']).includeTrash, true);
   assert.deepEqual(parseArgs(['--help']), { help: true });
   for (const value of ['0', '-1', '1.5', '1e2', 'Infinity', '9007199254740992', '01']) {
     assert.throws(() => parseArgs([...args, '--limit', value]));
@@ -139,7 +144,7 @@ test('local preview fix does not enable cleanup until the production release is 
     options: { project: PROJECT, apply: false, stopOnError: false } });
   assert.equal(dry.dryRunPhotos, 1);
   assert.equal(dry.readyToApply, false);
-  assert.equal(dry.applicationBlock, 'PRODUCTION_PREVIEW_FIX_NOT_VERIFIED');
+  assert.equal(dry.applicationBlock, 'PRODUCTION_CONFIRMATION_REQUIRED');
   assert.equal(dry.localPreviewCompatible, true);
   assert.equal(dry.productionVerified, false);
   assert.equal(reportExitCode(dry), 2);
@@ -197,6 +202,60 @@ test('trash/deleting/no-key/non-base64/already-cleaned are skipped before touchi
   assert.equal(report.eligible, 0);
   assert.deepEqual(f.commands, []);
   assert.deepEqual(Object.fromEntries(f.records), initial);
+});
+
+test('explicit include-trash cleans only verified base64 and preserves both keys, external URLs and restoration data', async () => {
+  const initial = {
+    a: plant('a', { photoThumbKey: keyFor('a').replace('12345678-', '22345678-') }),
+    b: plant('b', { deletedAt: 'old', isWishlisted: true, photoThumbKey: keyFor('b').replace('12345678-', '22345678-') }),
+    c: plant('c', { deletedAt: 'old', photoKey: null }),
+    d: plant('d', { deletedAt: 'old', photo: 'https://external/image' }),
+    e: plant('e', { deletedAt: 'old', _photoDeleting: true }),
+  };
+  const f = await fixture(initial);
+  const dry = await f.run({ includeTrash: true });
+  assert.equal(dry.dryRunPhotos, 2);
+  assert.equal(dry.trashEligible, 1);
+  assert.deepEqual(Object.fromEntries(f.records), initial);
+  const report = await f.run({ apply: true, includeTrash: true });
+  assert.equal(report.removed, 2);
+  assert.equal(report.includeTrash, true);
+  assert.equal(report.trashCandidates, 1);
+  assert.equal(report.trashRemoved, 1);
+  assert.equal(report.wishlistRemoved, 1);
+  assert.equal(report.skipped, 3);
+  for (const id of ['a', 'b']) {
+    const { photo, ...rest } = initial[id];
+    assert.deepEqual(f.records.get(id), rest);
+  }
+  for (const id of ['c', 'd', 'e']) assert.deepEqual(f.records.get(id), initial[id]);
+  assert.equal((await f.run({ apply: true, includeTrash: true })).removed, 0);
+  assert.equal(f.writes.length, 2);
+});
+
+test('include-trash still rejects a concurrent restore, changed deletion date or deletion lock', async () => {
+  for (const change of [
+    (records) => { records.get('a').deletedAt = null; },
+    (records) => { records.get('a').deletedAt = 'different-date'; },
+    (records) => { records.get('a')._photoDeleting = true; },
+  ]) {
+    const f = await fixture({ a: plant('a', { deletedAt: 'old' }) }, { onGet: ({ records }) => change(records) });
+    const report = await f.run({ apply: true, includeTrash: true });
+    assert.equal(report.errorsByCode.PLANT_CHANGED, 1);
+    assert.equal(f.records.get('a').photo, legacy);
+    assert.deepEqual(f.writes, []);
+  }
+});
+
+test('a thumbnail does not authorize base64 removal when the main object is missing', async () => {
+  const thumb = keyFor('a').replace('12345678-', '22345678-');
+  const initial = { a: plant('a', { photoThumbKey: thumb, deletedAt: 'old' }) };
+  const f = await fixture(initial, { onHead: () => { throw Object.assign(new Error(secret), { $metadata: { httpStatusCode: 404 } }); } });
+  const report = await f.run({ apply: true, includeTrash: true });
+  assert.equal(report.errorsByCode.OBJECT_MISSING, 1);
+  assert.deepEqual(Object.fromEntries(f.records), initial);
+  assert.ok(f.commands.every((command) => command.input.Key === keyFor('a')));
+  assert.deepEqual(f.writes, []);
 });
 
 test('wrong owner/plant path, invalid keys, and missing owner never delete photo or read a foreign object', async () => {
@@ -367,5 +426,38 @@ test('CLI help and dry-run initialization/argument failures expose no secret; no
     assert.equal(result.status, status);
     assert.ok(!(result.stdout + result.stderr).includes(secret));
     assert.ok(!(result.stdout + result.stderr).includes('Error:'));
+  }
+});
+
+test('a valid acknowledged receipt still cannot authorize deleting a missing object or a changed document', async (t) => {
+  const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'ficus-confirmation-guards-'));
+  const file = path.join(folder, 'production.json');
+  const bytes = Buffer.from(JSON.stringify({ schemaVersion: 1, projectId: PROJECT,
+    productionOrigin: PRODUCTION_ORIGIN, fixCommit: REQUIRED_FIX_COMMIT,
+    deployment: 'dpl_ProductionFixture123', sourceCommit: 'a'.repeat(40), confirmedAt: new Date().toISOString(),
+    checks: Object.fromEntries(CHECKS.map((check) => [check, true])) }));
+  await fs.writeFile(file, bytes);
+  t.after(async () => {
+    assert.equal(path.dirname(folder), await fs.realpath(os.tmpdir()));
+    assert.ok(path.basename(folder).startsWith('ficus-confirmation-guards-'));
+    await fs.unlink(file);
+    await fs.rmdir(folder);
+  });
+  const options = { project: PROJECT, apply: true, stopOnError: true, limit: 5,
+    productionConfirmation: file, confirmProduction: createHash('sha256').update(bytes).digest('hex') };
+  const compatibility = await resolveCompatibility(options);
+  assert.equal(compatibility.productionVerified, true);
+  for (const hooks of [
+    { onHead: () => { throw Object.assign(new Error(secret), { $metadata: { httpStatusCode: 404 } }); } },
+    { onGet: ({ records }) => { records.get('a').photoKey = keyFor('replacement'); } },
+  ]) {
+    const f = await fixture({ a: plant('a'), trash: plant('trash', { deletedAt: '2026-11-20' }) }, hooks);
+    const report = await runCleanup({ db: f.db, connection: f.connection, options, compatibility });
+    assert.equal(report.errors, 1);
+    assert.equal(report.removed, 0);
+    assert.equal(report.productionVerified, true);
+    assert.equal(f.records.get('a').photo, legacy);
+    assert.equal(f.records.get('trash').photo, legacy);
+    assert.deepEqual(f.writes, []);
   }
 });

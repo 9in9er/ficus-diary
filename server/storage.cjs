@@ -95,8 +95,71 @@ async function storePhoto(uid, plantId, bytes) {
   return key;
 }
 
-async function deletePlantFiles(uid, plantId) {
-  const { client: s3, bucket } = storage();
+async function createPhotoThumbnail(bytes) {
+  return sharp(bytes, { limitInputPixels: 1600 * 1600, animated: false })
+    .rotate().resize({ width: 300, height: 300, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 75 }).toBuffer();
+}
+
+async function deletePhotoVersions(uid, plantId, keys, connection = storage()) {
+  const values = [keys.photoKey, keys.photoThumbKey];
+  if (values.some((key) => !ownsPhotoKey(uid, plantId, key))) throw new Error('Invalid deletion scope');
+  const results = await Promise.allSettled(values.map((Key) => connection.client.send(
+    new DeleteObjectCommand({ Bucket: connection.bucket, Key })
+  )));
+  const failure = results.find((result) => result.status === 'rejected');
+  if (failure) throw failure.reason;
+}
+
+async function storePhotoVersions(uid, plantId, bytes, connection = storage()) {
+  // Finish processing before publishing either object. Both use immutable UUID keys.
+  const thumbnail = await createPhotoThumbnail(bytes);
+  const prefix = `${plantPrefix(uid, plantId)}photos/`;
+  const keys = { photoKey: `${prefix}${randomUUID()}.webp`, photoThumbKey: `${prefix}${randomUUID()}.webp` };
+  try {
+    for (const [Key, Body] of [[keys.photoKey, bytes], [keys.photoThumbKey, thumbnail]]) {
+      await connection.client.send(new PutObjectCommand({ Bucket: connection.bucket, Key, Body,
+        ContentType: 'image/webp', CacheControl: 'private, max-age=300' }));
+    }
+  } catch (error) {
+    // Also delete the failed PUT key: the object may exist despite a lost response.
+    await deletePhotoVersions(uid, plantId, keys, connection);
+    throw error;
+  }
+  return keys;
+}
+
+// Keep the UUID-shaped filename accepted by the existing read/delete API.
+// Namespace + content hash make retries use the same immutable object key.
+function migrationPhotoKey(uid, plantId, bytes) {
+  const hash = createHash('sha256').update('ficus-photo-migration-v1\0').update(bytes).digest('hex');
+  const id = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+  return `${plantPrefix(uid, plantId)}photos/${id}.webp`;
+}
+
+async function storeMigrationPhoto(uid, plantId, bytes, connection = storage()) {
+  const { client: s3, bucket } = connection;
+  const key = migrationPhotoKey(uid, plantId, bytes);
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  let head;
+  try {
+    head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+  } catch (error) {
+    // Access denied, timeout and other failures must never be treated as absence.
+    const status = error.$metadata?.httpStatusCode;
+    if (status ? status !== 404 : !['NotFound', 'NoSuchKey'].includes(error.name)) throw error;
+  }
+  if (head) {
+    if (head.ContentLength !== bytes.length || head.ContentType !== 'image/webp'
+      || head.Metadata?.sha256 !== sha256) throw new Error('Migration object does not match image');
+    return { photoKey: key, uploadedBytes: 0, reused: true };
+  }
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes,
+    ContentType: 'image/webp', CacheControl: 'private, max-age=300', Metadata: { sha256 } }));
+  return { photoKey: key, uploadedBytes: bytes.length, reused: false };
+}
+
+async function deletePlantFiles(uid, plantId, { client: s3, bucket } = storage()) {
   const prefix = plantPrefix(uid, plantId);
   let continuation;
   do {
@@ -110,4 +173,5 @@ async function deletePlantFiles(uid, plantId) {
 }
 
 module.exports = { MAX_PHOTO_BYTES, UPLOAD_SECONDS, READ_SECONDS, plantPrefix, ownsPhotoKey,
-  signUpload, readUrl, validateUpload, normalizeUpload, storePhoto, deletePlantFiles };
+  signUpload, readUrl, validateUpload, normalizeUpload, storePhoto, deletePlantFiles,
+  createPhotoThumbnail, storePhotoVersions, deletePhotoVersions, migrationPhotoKey, storeMigrationPhoto };

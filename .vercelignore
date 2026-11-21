@@ -17,3 +17,4 @@ out/
 *.p12
 *.pfx
 backups/
+.photo-cleanup-confirmations/
