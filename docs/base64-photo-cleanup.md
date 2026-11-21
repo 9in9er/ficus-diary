@@ -1,11 +1,18 @@
 # Подготовка очистки старых base64
 
-**Предпросмотр исправлен локально; запуск удаления заблокирован до проверки публикации.**
-Скрипт `scripts/cleanup-base64-photos.cjs` подготовлен, но `--apply` завершится с
-`CLEANUP_BLOCKED_APP_COMPATIBILITY` до инициализации SDK, чтения базы и записи.
-Флагов или переменных окружения для обхода нет. `dry-run` доступен.
-Текущие признаки готовности: `localPreviewCompatible: true`, `productionVerified: false`,
-`applyAllowed: false`, причина `PRODUCTION_PREVIEW_FIX_NOT_VERIFIED`.
+Для третьего этапа добавлен явный `--include-trash`: он разрешает проверку и очистку
+base64 также в корзине, сохраняя документы, оба ключа фото и данные для восстановления.
+Без этого флага прежний пропуск корзины сохраняется. Команды диагностики, создания
+миниатюр и очистки собраны в [existing-photo-maintenance.md](existing-photo-maintenance.md).
+
+**Разрешение apply теперь требует записи проверки конкретного Production Deployment.**
+По информации пользователя исправление `8dfe7f9` опубликовано, Deployment получил
+Ready, фото загружается из Object Storage при открытии и повторном открытии формы.
+Скрипт не подменяет эти сведения своей независимой проверкой Vercel API.
+Без локального файла подтверждения `--apply` завершится до SDK/чтения базы/записи.
+Постоянного переключателя или переменной окружения для обхода нет; dry-run остаётся режимом по умолчанию.
+Базовая политика сохраняет `productionVerified: false`. При загрузке корректной записи
+скрипт вычисляет эффективную политику `productionVerified: true` только для этого запуска.
 Очистка, облачный dry-run очистки, push, деплой и изменения Rules при подготовке не выполнялись.
 
 ## Проверка production и вишлиста
@@ -51,12 +58,72 @@ CSS-классы и поддержка base64 без ключа сохранен
 Серверный тест подтверждает сохранение статуса вишлиста при замене фото без base64.
 Дополнительных обязательных зависимостей от base64 в интерфейсе не найдено:
 остальные обращения к `photo` используются как совместимый резервный источник.
-Firestore Rules не менялись; новая версия не публиковалась.
+Firestore Rules не менялись. Публикация исправления и ручная проверка production
+подтверждены пользователем; в рамках подготовки разблокировки ничего не публикуется.
 
-Чтобы разблокировать удаление, нужно отдельно выпустить подготовленное исправление
-и подтвердить карточки/редактирование/замену фото/вишлист без `photo` в production. Затем отдельно
-пересмотреть `APPLICATION_COMPATIBILITY` в скрипте, повторить dry-run и убедиться,
-что старые вкладки обновлены. Одного изменения константы без проверки приложения недостаточно.
+## Явное подтверждение Production Deployment
+
+Создайте локальный файл по шаблону. Это не запускает cleanup и не обращается к облаку:
+
+```powershell
+New-Item -ItemType Directory -Force .\.photo-cleanup-confirmations | Out-Null
+if (Test-Path -LiteralPath .\.photo-cleanup-confirmations\production.json) { throw 'Файл уже существует: сначала просмотрите прежнее подтверждение' }
+Copy-Item -LiteralPath .\docs\photo-cleanup-production-confirmation.example.json -Destination .\.photo-cleanup-confirmations\production.json
+notepad .\.photo-cleanup-confirmations\production.json
+```
+
+Заполните фактические данные из Vercel → проверенный Production Deployment:
+
+- `deployment`: его `dpl_...` ID либо неизменяемый HTTPS адрес `*.vercel.app` без
+  query, паролей и токенов; основной домен сайта не идентифицирует конкретный Deployment.
+  Изменяемые адреса веток вида `...-git-main-....vercel.app` отвергаются.
+  Предпочтителен ID `dpl_...`; для URL неизменяемость дополнительно сверяет оператор в Vercel.
+- `sourceCommit`: полный 40-символьный Source SHA из Vercel. При merge/squash он
+  может отличаться от `8dfe7f9`; проверьте, что опубликованный код содержит исправление.
+- `fixCommit`: оставьте полный SHA `8dfe7f9f944f37fdba0e3c595dfad92d8680bfc5`.
+- `confirmedAt`: UTC-время, когда вы подтверждаете эту запись, например вывод
+  `(Get-Date).ToUniversalTime().ToString('o')`. Оно действительно в течение 24 часов;
+  не обновляйте дату автоматически без повторного просмотра условий.
+- В `checks` поставьте `true` только для подтверждённых фактов: `deploymentReady`,
+  `fixIncluded`, `photoKeyPreview`, `previewReopened`, `backupSavedSeparately`.
+  Последние условия соответствуют сообщённым пользователем ручным проверкам и backup.
+
+Сверьте Deployment/Source SHA с Vercel, статус Ready и привязку этого Deployment к
+production-домену `https://www.ficus-diary.ru`. При проверке формы убедитесь через Network,
+что предпросмотр получает фото по ключу из Object Storage, а не только из base64;
+временные URL и секреты в файл не вставляйте. Обновите старые вкладки приложения.
+
+Проверьте файл отдельной локальной командой — без Firebase/Yandex и без операций записи:
+
+```powershell
+$productionConfirmation = node scripts/photo-cleanup-production-confirmation.cjs --file .\.photo-cleanup-confirmations\production.json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw 'Подтверждение production отклонено' }
+$productionConfirmation | ConvertTo-Json -Depth 6
+```
+
+В выводе должны быть `confirmationValidated: true`, ожидаемые Deployment и Source SHA,
+`source: "operator-confirmation-file"` и полный `fixCommit`. Просмотрите все поля,
+затем сохраните SHA-256 именно этой просмотренной записи:
+
+```powershell
+$productionConfirmationSha = $productionConfirmation.productionConfirmation.sha256
+```
+
+Hash взят из уже просмотренного результата, а не заново вычисляется перед записью.
+Он должен совпасть с `productionConfirmation.sha256` из dry-run; независимо проверить
+текущий файл можно через `Get-FileHash -Algorithm SHA256`, не заменяя сохранённое значение автоматически.
+Для apply он передаётся отдельным параметром `--confirm-production`. Любое изменение файла,
+включая форматирование, потребует повторного просмотра и нового hash.
+Пустые поля, шаблонные значения, чужой проект/домен/исправление, просрочка, неподтверждённые
+проверки, отсутствие или несовпадение hash не разрешают запись.
+
+**Граница гарантии:** JSON и его hash фиксируют заявление оператора о конкретной версии
+и защищают от случайного выбора/изменения записи. Они не доказывают сами по себе Ready
+или выполнение ручных тестов. Автоматической сверки с Vercel API нет; это явно отражено
+как `independentlyVerifiedWithVercelAPI: false`. Заведомо ложную запись оператор с Admin
+доступом может составить, поэтому истинность фактов сверяется с Vercel и выполненной проверкой.
+Переименование переменной в коде в `true` или один boolean-флаг не заменяет запись.
+Локальные записи исключены из Git и Vercel через `.gitignore` и `.vercelignore`.
 
 ## Команды Windows PowerShell
 
@@ -69,27 +136,34 @@ UID владельцев указывать не требуется; обраб�
 npm.cmd run cleanup:photos -- --project my-plants-app-8f6fc --dry-run
 ```
 
+Для проверки готовности с уже заполненным подтверждением используйте:
+
+```powershell
+npm.cmd run cleanup:photos -- --project my-plants-app-8f6fc --dry-run --production-confirmation .\.photo-cleanup-confirmations\production.json
+```
+
 Это чтение Firestore и HEAD/GET объектов S3 с полной локальной декодировкой.
 Транзакций записи нет. При исходных данных из задачи ожидаются 265 проверенных
 кандидатов и 0 удалённых полей. Это ожидание по предоставленным результатам,
 а не результат заново запущенного облачного сканирования.
-Из-за блокировки совместимости `compatibilityPassed: false`, `readyToApply: false`
-и код выхода `2` сохранятся даже при успешной проверке всех объектов.
+Без файла подтверждения останутся `compatibilityPassed: false`, `readyToApply: false`
+и код выхода `2`. С корректной записью ожидаются `productionVerified: true`,
+`confirmationValidated: true`, `compatibilityPassed: true` и при полном проходе без
+ошибок/отложенных кандидатов `readyToApply: true`. Записей даже с подтверждением в dry-run нет.
 
-**2. Первые пять кандидатов — команда на будущее, сейчас заблокирована:**
-
-```powershell
-npm.cmd run cleanup:photos -- --project my-plants-app-8f6fc --apply --limit 5 --stop-on-error
-```
-
-**3. Продолжить для оставшихся — команда на будущее, сейчас заблокирована:**
+**2. Первые пять кандидатов — только после просмотра успешного dry-run и записи:**
 
 ```powershell
-npm.cmd run cleanup:photos -- --project my-plants-app-8f6fc --apply --stop-on-error
+npm.cmd run cleanup:photos -- --project my-plants-app-8f6fc --apply --limit 5 --stop-on-error --production-confirmation .\.photo-cleanup-confirmations\production.json --confirm-production $productionConfirmationSha
 ```
 
-Команды 2 и 3 при подготовке не запускались. После снятия блокировки в рамках
-отдельно проверенного изменения вторая команда удалит не более пяти полей,
+**3. Продолжить для оставшихся — после проверки первой партии:**
+
+```powershell
+npm.cmd run cleanup:photos -- --project my-plants-app-8f6fc --apply --stop-on-error --production-confirmation .\.photo-cleanup-confirmations\production.json --confirm-production $productionConfirmationSha
+```
+
+Команды 2 и 3 при подготовке не запускались. После явного подтверждения вторая команда удалит не более пяти полей,
 а третья пропустит уже очищенные документы и продолжит с оставшихся.
 Между партиями необходимо проверить результат первых пяти в приложении,
 включая вишлист, и сохранить актуальную независимую резервную копию.
@@ -105,7 +179,7 @@ npm.cmd run cleanup:photos -- --project my-plants-app-8f6fc --apply --stop-on-er
 `plants` всех владельцев, включая вишлист. Проекция читает только поля, необходимые
 для проверки; заметки и истории ухода не выгружаются. Пропускаются:
 
-- документы с непустым `deletedAt` — все 47 растений корзины должны сохраниться;
+- документы с непустым `deletedAt`, если явно не указан `--include-trash`;
 - документы с `_photoDeleting` (в том числе `true`);
 - документы без `photoKey` или с `photoKey: null`;
 - документы без `photo` с префиксом `data:image/...;base64,`, включая уже очищенные.
@@ -125,15 +199,15 @@ npm.cmd run cleanup:photos -- --project my-plants-app-8f6fc --apply --stop-on-er
 Неправильный путь также предотвращает обращение к чужому объекту.
 
 В режиме apply после успешной проверки объекта транзакция Firestore заново читает
-документ. Проверяются существование, неизменность `userId`, `photo` и `photoKey`,
-отсутствие корзины и блокировки, base64 и корректность пути. При повторе транзакции
+документ. Проверяются существование, неизменность `userId`, `photo`, `photoKey` и `deletedAt`,
+отсутствие блокировки, допустимость корзины по `--include-trash`, base64 и корректность пути. При повторе транзакции
 проверки выполняются заново. Единственная запись:
 
 ```javascript
 tx.update(ref, { photo: FieldValue.delete() });
 ```
 
-`photoKey`, владелец, вишлист, заметки, поливы, удобрения и прочие поля сохраняются.
+`photoKey`, `photoThumbKey`, владелец, вишлист, заметки, поливы, удобрения и прочие поля сохраняются.
 Конкурентные изменения заметок допускаются и не перезаписываются. Изменение
 проверяемых полей или состояния растения отменяет удаление. Файлы S3 не меняются:
 скрипт не вызывает PUT/DELETE, листинг или создание подписанных URL.
@@ -175,6 +249,8 @@ Firestore и S3 не имеют общей транзакции. Между пр
 | `estimatedFreedBytes` | Примерный объём только подтверждённых удалений |
 | `scanComplete`, `stopped` | Полнота прохода и остановка |
 | `localPreviewCompatible`, `productionVerified` | Отдельные статусы локального исправления и проверки опубликованной версии |
+| `confirmationValidated`, `productionConfirmation` | Результат проверки записи, её SHA-256 и идентификаторы проверенного Deployment/Source/fix |
+| `applyRequiresConfirmationHash` | Apply всегда требует отдельного подтверждения hash просмотренного файла |
 | `compatibilityPassed`, `applicationBlock`, `readyToApply` | Итоговая готовность; локального исправления недостаточно для разрешения удаления |
 
 Оценка объёма — UTF-8 длина значения и имени поля плюс два терминатора.
@@ -194,7 +270,10 @@ npm.cmd test -- --watchAll=false --runInBand
 Тесты удаления используют Firestore/S3 исключительно в памяти и реальный
 `FieldValue.delete()` и декодер Sharp. Для моделирования будущего совместимого
 релиза в тестовый runner передаются три флага `localPreviewCompatible`, `productionVerified`,
-`applyAllowed` со значением `true`; в CLI такого
-параметра нет. Живой процесс с `--apply` не запускается. Проверены несколько
+`applyAllowed` со значением `true`; в CLI такого boolean-параметра нет.
+Новые тесты дополнительно загружают настоящие временные JSON-записи с hash, проверяют
+их привязку, срок действия, все ручные условия, BOM Windows PowerShell, изменённые файлы
+и запрет записи при ошибке объекта или изменении Firestore даже с подтверждением.
+Живой процесс с `--apply` не запускается. Проверены несколько
 владельцев, вишлист, неизменность корзины, ошибки S3/Firestore, изменения во время
 чтения, повтор транзакции, потеря ответа, лимит и безопасный повторный запуск.

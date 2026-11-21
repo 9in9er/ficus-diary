@@ -5,6 +5,7 @@ import { usePlants } from './usePlants';
 import PlantPhoto from '../components/PlantPhoto';
 import WishlistCard from '../components/WishlistCard';
 import { photoRequest, savePlantPhoto } from '../services/plantPhotos';
+import { clearPlantPhotoCache } from '../services/plantPhotoCache';
 
 const mockUser = { uid: 'test-owner' };
 jest.mock('../firebase', () => ({ db: {} }));
@@ -26,6 +27,7 @@ function WishlistHarness({ plant }) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  clearPlantPhotoCache();
   photoRequest.mockResolvedValue({ url: '/test-object-photo.webp', expiresIn: 600 });
   doc.mockImplementation((_db, _collection, id) => ({ id }));
   onSnapshot.mockImplementation((_query, callback) => {
@@ -36,11 +38,28 @@ beforeEach(() => {
 });
 
 test('collection and wishlist photo display resolves a key without any legacy photo', async () => {
-  render(<><PlantPhoto plant={{ id: 'ordinary', name: 'Test plant', photoKey: 'test-object-key' }} />
+  render(<><PlantPhoto plant={{ id: 'ordinary', name: 'Test plant', photoKey: 'ordinary-object-key' }} />
     <PlantPhoto plant={cleanedWish} /></>);
   await waitFor(() => expect(screen.getByRole('img', { name: 'Test plant' })).toHaveAttribute('src', '/test-object-photo.webp'));
   expect(screen.getByRole('img', { name: cleanedWish.name })).toHaveAttribute('src', '/test-object-photo.webp');
   expect(photoRequest).toHaveBeenCalledWith(expect.anything(), { action: 'read', plantId: cleanedWish.id });
+});
+
+test.each([false, true])('after base64 cleanup cards prefer thumbnail while preview keeps original (trash=%s)', async (trash) => {
+  const cleaned = { ...cleanedWish, photoThumbKey: 'thumbnail-key', deletedAt: trash ? '2026-11-20' : null };
+  photoRequest.mockImplementation(async (_user, body) => ({
+    url: body.variant === 'thumbnail' ? '/thumbnail.webp' : '/original.webp', expiresIn: 600,
+  }));
+  const { rerender } = render(<PlantPhoto plant={cleaned} />);
+  expect(await screen.findByRole('img', { name: cleaned.name })).toHaveAttribute('src', '/thumbnail.webp');
+  expect(photoRequest).toHaveBeenCalledWith(mockUser, { action: 'read', plantId: cleaned.id, variant: 'thumbnail' });
+  rerender(<WishlistHarness plant={cleaned} />);
+  await screen.findByRole('img', { name: cleaned.name });
+  // A restored document retains both keys; editing uses the main version.
+  rerender(<WishlistHarness plant={{ ...cleaned, deletedAt: null }} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+  expect(await screen.findByRole('img', { name: 'Предпросмотр фотографии' })).toHaveAttribute('src', '/original.webp');
+  expect(photoRequest).toHaveBeenCalledWith(mockUser, { action: 'read', plantId: cleaned.id });
 });
 
 test('wishlist editing resolves a preview by photoKey even when photo is completely absent', async () => {
@@ -64,6 +83,7 @@ test('wishlist editing retains legacy preview support without any photoKey or st
 test('preview can retry a failed temporary-link request without relying on base64', async () => {
   render(<WishlistHarness plant={cleanedWish} />);
   await screen.findByRole('img', { name: cleanedWish.name });
+  clearPlantPhotoCache();
   photoRequest.mockRejectedValueOnce(new Error('offline'));
   fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
   await screen.findByText('Не удалось загрузить фото.');

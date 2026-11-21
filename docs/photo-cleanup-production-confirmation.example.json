@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "projectId": "my-plants-app-8f6fc",
+  "productionOrigin": "https://www.ficus-diary.ru",
+  "fixCommit": "8dfe7f9f944f37fdba0e3c595dfad92d8680bfc5",
+  "deployment": "REPLACE_WITH_READY_PRODUCTION_DEPLOYMENT_ID_OR_VERCEL_URL",
+  "sourceCommit": "REPLACE_WITH_FULL_SOURCE_COMMIT_SHA_FROM_VERCEL",
+  "confirmedAt": "REPLACE_WITH_UTC_CONFIRMATION_TIME",
+  "checks": {
+    "deploymentReady": false,
+    "fixIncluded": false,
+    "photoKeyPreview": false,
+    "previewReopened": false,
+    "backupSavedSeparately": false
+  }
+}

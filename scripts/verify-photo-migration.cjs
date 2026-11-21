@@ -101,7 +101,7 @@ async function decodeWebP(bytes) {
   } catch { throw new AuditError('INVALID_WEBP'); }
 }
 
-async function verifyObject({ client, bucket, key, timeoutMs = 60_000 }) {
+async function verifyObject({ client, bucket, key, timeoutMs = 60_000, includeBuffer = false }) {
   const controller = new AbortController();
   let body;
   const timer = setTimeout(() => { controller.abort(); body?.destroy?.(); }, timeoutMs);
@@ -138,7 +138,7 @@ async function verifyObject({ client, bucket, key, timeoutMs = 60_000 }) {
         throw new AuditError('CHECKSUM_MISMATCH');
       }
     }
-    return { bytes: total, ...await decodeWebP(bytes) };
+    return { bytes: total, ...await decodeWebP(bytes), ...(includeBuffer ? { buffer: bytes } : {}) };
   } catch (error) {
     if (controller.signal.aborted) throw new AuditError('OBJECT_READ_TIMEOUT');
     throw storageError(error);

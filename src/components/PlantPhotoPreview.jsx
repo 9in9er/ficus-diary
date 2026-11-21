@@ -16,5 +16,5 @@ export default function PlantPhotoPreview({ plant, className = '' }) {
 
   return plant.photoBlob ? (
     localSrc && <img className={previewClassName} src={localSrc} alt='Предпросмотр фотографии' />
-  ) : <PlantPhoto plant={plant} className={previewClassName} alt='Предпросмотр фотографии' />;
+  ) : <PlantPhoto plant={plant} className={previewClassName} alt='Предпросмотр фотографии' lazy={false} variant='original' />;
 }

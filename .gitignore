@@ -41,3 +41,6 @@ yarn-error.log*
 
 # Local Firestore backups (contain private data and full photos).
 /backups/
+
+# Local production verification receipts for photo cleanup.
+/.photo-cleanup-confirmations/
