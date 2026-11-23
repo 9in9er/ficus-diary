@@ -304,7 +304,7 @@ if (require.main === module) {
     const code = error instanceof CleanupError || error instanceof ConfirmationError || CONFIG_CODES.has(error?.code)
       ? error.code : 'INITIALIZATION_OR_SHUTDOWN_FAILED';
     console.error('Photo cleanup stopped:', code);
-    if (code === 'CLEANUP_BLOCKED_APP_COMPATIBILITY') console.error('A valid production confirmation file and its SHA-256 acknowledgement are required. See docs/base64-photo-cleanup.md. No writes made.');
+    if (code === 'CLEANUP_BLOCKED_APP_COMPATIBILITY') console.error('A valid production confirmation file and its SHA-256 acknowledgement are required. No writes made.');
     process.exitCode = 1;
   });
 }
