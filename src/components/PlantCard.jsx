@@ -137,12 +137,19 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                   <PlantCareHistory
                     plantId={plant.id}
                     log={wateringLog}
-                    title='Последний полив'
-                    emptyMessage='ещё не поливали'
-                    className='aboutWatering'
+                    title='Полив'
+                    historyTitle='История полива'
+                    emptyMessage='Ещё не поливали'
+                    icon={iconEmojiDroplet}
+                    iconAlt='iconEmojiDroplet'
+                    actionClassName='btnWatering'
                     listClassName='wateringList'
                     isTrash={isTrash}
                     isPending={isPending}
+                    onAction={() => runAction(
+                      () => handleWaterPlant(plant.id, wateringLog),
+                      'Не удалось сохранить полив. Попробуйте ещё раз.'
+                    )}
                     onDelete={(id, log, date) => runAction(
                       () => deleteWateringEntry(id, log, date),
                       'Не удалось удалить запись полива. Попробуйте ещё раз.'
@@ -151,12 +158,19 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                   <PlantCareHistory
                     plantId={plant.id}
                     log={fertilizingLog}
-                    title='Последнее удобрение'
-                    emptyMessage='ещё не удобряли'
-                    className='aboutFertilizing'
+                    title='Удобрение'
+                    historyTitle='История удобрения'
+                    emptyMessage='Ещё не удобряли'
+                    icon={iconEmojiTestTube}
+                    iconAlt='iconEmojiTestTube'
+                    actionClassName='btnFertilizing'
                     listClassName='fertilizingList'
                     isTrash={isTrash}
                     isPending={isPending}
+                    onAction={() => runAction(
+                      () => handleFertilizePlant(plant.id, fertilizingLog),
+                      'Не удалось сохранить удобрение. Попробуйте ещё раз.'
+                    )}
                     onDelete={(id, log, date) => runAction(
                       () => deleteFertilizingEntry(id, log, date),
                       'Не удалось удалить запись удобрения. Попробуйте ещё раз.'
@@ -233,30 +247,6 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
               
               {!isTrash && (
                 <div className='btnsWrap cardBtns'>
-                  <button
-                    className='btn btnWatering'
-                    disabled={isPending}
-                    onClick={() => runAction(
-                      () => handleWaterPlant(plant.id, wateringLog),
-                      'Не удалось сохранить полив. Попробуйте ещё раз.'
-                    )}
-                  >
-                    <span>
-                      <img src={iconEmojiDroplet} alt='iconEmojiDroplet'/>
-                    </span>
-                  </button>
-                  <button
-                    className='btn btnFertilizing'
-                    disabled={isPending}
-                    onClick={() => runAction(
-                      () => handleFertilizePlant(plant.id, fertilizingLog),
-                      'Не удалось сохранить удобрение. Попробуйте ещё раз.'
-                    )}
-                  >
-                    <span>
-                      <img src={iconEmojiTestTube} alt='iconEmojiTestTube'/>
-                    </span>
-                  </button>
                   {isDotsMenuOpen && (
                     <>
                       <button

@@ -83,8 +83,8 @@ test.each([
   ['restoring', 'Восстановить растение', updateDoc, 'Не удалось восстановить растение.', 'trash'],
   ['permanent deletion', 'Удалить растение навсегда', photoRequest, 'Не удалось удалить растение навсегда.', 'trash'],
   ['note deletion', '✖', updateDoc, 'Не удалось удалить заметку.', null],
-  ['watering entry deletion', /^Удалить запись: последний полив,/, updateDoc, 'Не удалось удалить запись полива.', 'Последний полив:'],
-  ['fertilizing entry deletion', /^Удалить запись: последнее удобрение,/, updateDoc, 'Не удалось удалить запись удобрения.', 'Последнее удобрение:'],
+  ['watering entry deletion', /^Удалить запись: история полива,/, updateDoc, 'Не удалось удалить запись полива.', 'Полив'],
+  ['fertilizing entry deletion', /^Удалить запись: история удобрения,/, updateDoc, 'Не удалось удалить запись удобрения.', 'Удобрение'],
 ])('blocks repeated %s, reports failure and allows retrying', async (name, buttonName, request, message, prepare) => {
   const pending = deferred();
   request.mockReturnValueOnce(pending.promise);
@@ -94,7 +94,9 @@ test.each([
   const card = screen.getByRole('listitem', { name: 'Фикус' });
   if (prepare === 'menu') fireEvent.click(within(card).getByRole('button', { name: 'menu' }));
   else if (prepare && prepare !== 'trash') fireEvent.click(within(card).getByText(prepare));
-  const trigger = within(card).getByRole('button', { name: buttonName });
+  const trigger = prepare === 'Полив' || prepare === 'Удобрение'
+    ? screen.getByRole('button', { name: buttonName })
+    : within(card).getByRole('button', { name: buttonName });
 
   fireEvent.click(trigger);
   expect(trigger).toBeDisabled();

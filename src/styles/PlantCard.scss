@@ -84,11 +84,7 @@
         }
     }
 
-    &:not(.plantWrap--trash) {
-        .cardBtns .btn:not(.btnWatering):not(.btnFertilizing) {
-            display: none;
-        }
-    }
+    &:not(.plantWrap--trash) .cardBtns { display: none; }
 }
 
 .plantListWrap {
@@ -232,13 +228,18 @@
                 }
 
                 .plantName {
-                    width: calc(100% - rem.convert(150px));
+                    width: calc(100% - rem.convert(60px));
                     overflow-wrap: anywhere;
 
                     margin-top: rem.convert(10px);
 
                     font-size: rem.convert(22px);
                     line-height: rem.convert(22px);
+
+                    .plantNameText {
+                        display: block;
+                        min-height: rem.convert(44px);
+                    }
 
                     .plantNameToggle { display: none; }
                 }
@@ -264,37 +265,81 @@
                             aspect-ratio: 4/5;
                         }
 
-                        .aboutWatering,
-                        .aboutFertilizing {
-                            font-size: rem.convert(14px);
-                            line-height: rem.convert(14px);
+                        .plantCareRow {
+                            display: flex;
+                            align-items: flex-start;
+                            gap: rem.convert(10px);
+                            min-width: 0;
+                            margin-top: rem.convert(8px);
+                        }
 
+                        .plantPhoto + .plantCareRow {
                             margin-top: rem.convert(15px);
+                        }
 
-                            summary {
-                                margin-top: rem.convert(15px);
+                        .plantCareAction {
+                            flex: 0 0 rem.convert(40px);
+                            width: rem.convert(40px);
+                            height: rem.convert(40px);
+                            padding: 0;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            background: #fff;
+                            border: 1px solid $borderColor;
 
-                                cursor: pointer;
-                            }
-
-                            .wateringList,
-                            .fertilizingList {
-                                margin-top: rem.convert(10px);
-                                padding-left: rem.convert(0px);
-
-                                list-style-type: none;
-
-                                li {
-                                    margin: rem.convert(4px 0px);
-                                }
-
-                                .btn.btnDelete {
-                                    padding: rem.convert(2px 4px);
-
-                                    margin-left: rem.convert(10px);
-                                }
+                            img {
+                                width: rem.convert(24px);
+                                height: rem.convert(24px);
                             }
                         }
+
+                        .plantCareContent {
+                            min-width: 0;
+                            flex: 1 1 auto;
+                            padding-top: rem.convert(2px);
+                            overflow-wrap: anywhere;
+                        }
+
+                        .plantCareSummary {
+                            width: 100%;
+                            min-width: 0;
+                            padding: 0;
+                            border: 0;
+                            background: transparent;
+                            text-align: left;
+                            font-family: inherit;
+                            font-size: rem.convert(14px);
+                            line-height: rem.convert(16px);
+                        }
+
+                        .plantCareSummary--interactive {
+                            display: block;
+                            cursor: pointer;
+
+                            &:disabled { cursor: default; }
+
+                            .plantCareTitle::after {
+                                content: '›';
+                                margin-left: rem.convert(5px);
+                                color: $grayTextColor;
+                            }
+                        }
+
+                        .plantCareSummary--empty .plantCareTitle { display: block; }
+
+                        .plantCareTitle {
+                            color: $grayTextColor;
+                            font-weight: 400;
+                        }
+
+                        .plantCareElapsed {
+                            display: block;
+                            margin-top: rem.convert(3px);
+                            color: #000;
+                            font-weight: 600;
+                        }
+
                     }
 
                     .textInfos {
@@ -482,6 +527,129 @@
                 }
             }
         }
+    }
+}
+
+.plantCarePopover {
+    position: fixed;
+    z-index: 1000;
+    box-sizing: border-box;
+    max-height: calc(100vh - rem.convert(16px));
+    overflow-y: auto;
+    padding: rem.convert(16px 14px 14px);
+    border: 1px solid $borderColor;
+    border-radius: rem.convert(10px);
+    background: #fff;
+    box-shadow: rem.convert(0 8px 24px) rgba(0, 0, 0, 0.14);
+    color: #000;
+
+    .plantCarePopoverHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: rem.convert(12px);
+        padding-bottom: rem.convert(12px);
+        border-bottom: 1px solid $borderColor;
+        font-size: rem.convert(16px);
+        line-height: rem.convert(20px);
+    }
+
+    .plantCarePopoverClose,
+    .plantCareDelete {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+
+        img { display: block; }
+    }
+
+    .plantCarePopoverClose {
+        width: rem.convert(24px);
+        height: rem.convert(24px);
+
+        img {
+            width: rem.convert(14px);
+            height: rem.convert(14px);
+            opacity: 0.65;
+        }
+    }
+
+    .plantCarePopoverList {
+        margin: rem.convert(10px 0 0);
+        padding: 0;
+        list-style: none;
+
+        li {
+            display: grid;
+            grid-template-columns: rem.convert(7px) minmax(0, 1fr) auto rem.convert(24px);
+            align-items: center;
+            gap: rem.convert(8px);
+            min-height: rem.convert(32px);
+            font-size: rem.convert(14px);
+            line-height: rem.convert(18px);
+        }
+    }
+
+    .plantCareDot {
+        width: rem.convert(7px);
+        height: rem.convert(7px);
+        border-radius: 50%;
+        background: #48a9e6;
+    }
+
+    .plantCareInterval {
+        color: $grayTextColor;
+        white-space: nowrap;
+    }
+
+    .plantCareDelete {
+        width: rem.convert(24px);
+        height: rem.convert(24px);
+
+        img {
+            width: rem.convert(13px);
+            height: rem.convert(13px);
+            opacity: 0.55;
+        }
+
+        &:hover img,
+        &:focus-visible img {
+            opacity: 1;
+            filter: invert(18%) sepia(95%) saturate(4591%) hue-rotate(351deg) brightness(94%) contrast(90%);
+        }
+
+        &:disabled {
+            cursor: default;
+            opacity: 0.4;
+        }
+    }
+
+    .plantCareAverage {
+        display: flex;
+        flex-direction: column;
+        gap: rem.convert(3px);
+        margin-top: rem.convert(10px);
+        padding-top: rem.convert(12px);
+        border-top: 1px solid $borderColor;
+        color: $grayTextColor;
+        font-size: rem.convert(13px);
+        line-height: rem.convert(17px);
+
+        strong {
+            color: #218fcf;
+            font-size: rem.convert(22px);
+            line-height: rem.convert(26px);
+        }
+    }
+
+    &--fertilizing {
+        .plantCareDot { background: $pixelatedGrassColor; }
+        .plantCareAverage strong { color: $pixelatedGrassColor; }
     }
 }
 
