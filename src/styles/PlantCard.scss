@@ -7,6 +7,48 @@
             .plantName {
                 width: 100%;
                 overflow-wrap: anywhere;
+                margin-top: 0;
+                position: relative;
+
+                .plantNameText {
+                    display: -webkit-box;
+                    -webkit-box-orient: vertical;
+                    -webkit-line-clamp: 3;
+                    overflow: hidden;
+                    min-height: rem.convert(66px);
+                }
+
+                &.plantName--truncated .plantNameText {
+                    padding-right: rem.convert(18px);
+                }
+
+                &.plantName--expanded .plantNameText {
+                    display: block;
+                    -webkit-line-clamp: unset;
+                }
+
+                .plantNameToggle {
+                    display: flex;
+                    position: absolute;
+                    right: 0;
+                    bottom: 0;
+                    align-items: center;
+                    justify-content: center;
+                    width: rem.convert(20px);
+                    height: rem.convert(22px);
+                    padding: 0;
+                    border: 0;
+                    border-radius: rem.convert(3px);
+                    background: transparent;
+                    color: inherit;
+                    cursor: pointer;
+
+                    &:focus-visible { outline: 2px solid $borderColorDark; }
+                }
+
+                &.plantName--expanded .plantNameToggle svg {
+                    transform: rotate(180deg);
+                }
             }
 
             .aboutPlantWrap {
@@ -77,6 +119,35 @@
         box-sizing: border-box;
 
         border: 1px solid $borderColor;
+
+        .cardSavingOverlay {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: rem.convert(10px);
+            padding: rem.convert(20px);
+            box-sizing: border-box;
+            border-radius: inherit;
+            background: rgba(255, 255, 255, 0.84);
+            color: #2f2f2f;
+            font-weight: 600;
+            text-align: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .cardSavingSpinner {
+            width: rem.convert(28px);
+            height: rem.convert(28px);
+            box-sizing: border-box;
+            border: rem.convert(3px) solid $borderColor;
+            border-top-color: $borderColorDark;
+            border-radius: 50%;
+            animation: cardSavingSpin 0.8s linear infinite;
+        }
 
         &.plantWrap--pinned {
             border: 1px solid $borderColorDark;
@@ -168,6 +239,8 @@
 
                     font-size: rem.convert(22px);
                     line-height: rem.convert(22px);
+
+                    .plantNameToggle { display: none; }
                 }
 
                 .aboutPlantWrap {
@@ -409,6 +482,18 @@
                 }
             }
         }
+    }
+}
+
+@keyframes cardSavingSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cardSavingSpinner {
+        animation: none;
     }
 }
 

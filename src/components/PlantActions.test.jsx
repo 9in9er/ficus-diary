@@ -99,7 +99,7 @@ test.each([
   fireEvent.click(trigger);
   expect(trigger).toBeDisabled();
   expect(card).toHaveAttribute('aria-busy', 'true');
-  expect(screen.getByRole('status')).toHaveTextContent('Сохраняем изменения');
+  expect(within(card).getByRole('status')).toHaveTextContent('Сохраняем изменения');
   const menuToggle = within(card).queryByRole('button', { name: /^(menu|close)$/ });
   const controls = [
     ...within(card).getAllByRole('button', { hidden: true }).filter((control) => control !== menuToggle),

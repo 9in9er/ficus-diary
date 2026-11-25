@@ -152,7 +152,6 @@ function PlantsPage({ isWishlist = false }) {
                 {loadingPlants && <p className='startMessage'>Загружаем ваши растения…</p>}
                 {plantsError && <p className='formError' role='alert'>{plantsError}</p>}
                 {actionError && <p className='formError' role='alert'>{actionError}</p>}
-                {pendingPlantIds.size > 0 && <p role='status'>Сохраняем изменения…</p>}
                 {isWishlist && acquiredWishName && <p role='status'>«{acquiredWishName}» теперь в разделе «Мои растения».</p>}
 
                 {showTrash && isWishlist && <p className='wishlistHint'>Удалённые желания остаются в корзине до окончательного удаления. Их можно восстановить.</p>}

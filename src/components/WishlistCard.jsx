@@ -12,6 +12,7 @@ import checkIcon from '../i/icons/check.svg';
 import dotsMenuIcon from '../i/icons/dots-menu.svg';
 import closeIcon from '../i/icons/close.svg';
 import '../styles/PlantCard.scss';
+import CardSavingOverlay from './CardSavingOverlay';
 
 export default function WishlistCard({ plant, actions, editor, isTrash, isPending, runAction, onAcquired }) {
   const [editError, setEditError] = useState('');
@@ -40,6 +41,7 @@ export default function WishlistCard({ plant, actions, editor, isTrash, isPendin
           event.currentTarget.querySelector('.btnDotsMenu')?.focus();
         }
       }}>
+      {isPending && <CardSavingOverlay />}
       <div className='wishlistCardContent'>
         {editor.editingId === plant.id && !isTrash ? (
           <WishlistForm form={editor} onSubmit={submitEdit} onCancel={editor.cancelEdit} isSubmitting={isPending} error={editError} />

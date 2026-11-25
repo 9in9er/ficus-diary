@@ -19,6 +19,8 @@ import closeIcon from '../i/icons/close.svg';
 
 import PlantForm from './PlantForm';
 import PlantPhoto from './PlantPhoto';
+import CardSavingOverlay from './CardSavingOverlay';
+import PlantName from './PlantName';
 
 function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash = false, isPending, runAction }) {
   const {
@@ -104,6 +106,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
       className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isTrash ? "plantWrap--trash" : ""}`}
       onMouseLeave={() => setIsDotsMenuOpen(false)}
     >
+      {isPending && <CardSavingOverlay />}
       <div className='plantInfo'>
         {isEditing ? (
           <PlantForm
@@ -126,7 +129,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
           <>
             <div className='aboutPlant'>
               <div className={`badge badge--replant ${needReplant ? 'badge--active' : ''}`}><img src={iconEmojiShovel} alt='iconEmojiShovel'/></div>
-              <h3 className='plantName'>{plant.name}</h3>
+              <PlantName name={plant.name} />
               <div className="aboutPlantWrap">
                 <div className='photoInfo'>
                   <PlantPhoto plant={plant} className='plantPhoto' />
