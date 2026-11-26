@@ -48,6 +48,9 @@ export default function PlantsToolbar({
     isWishlist = false,
     count,
     trashCount,
+    showArchive = false,
+    setShowArchive,
+    showSold = false,
     onAdd,
     searchQuery,
     setSearchQuery,
@@ -66,7 +69,7 @@ export default function PlantsToolbar({
     mobileCompact,
     setMobileCompact,
 }) {
-    const showAll = !showOnlyHidden && !showOnlyNeedReplant && !showTrash;
+    const showAll = !showOnlyHidden && !showOnlyNeedReplant && !showTrash && !showArchive;
     return (
         <section className='plantsToolbar' aria-label={isWishlist ? 'Управление вишлистом' : 'Управление растениями'}>
             <div className='plantsToolbarHeader'>
@@ -87,9 +90,14 @@ export default function PlantsToolbar({
                 </div>
                 <div className='sortControls'>
                     <select aria-label='Сортировать растения' value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
-                        <option value='date'>Добавлены: новые → старые</option>
+                        {showSold ? <>
+                            <option value='recent'>Дата продажи: сначала недавние</option>
+                            <option value='oldest'>Дата продажи: сначала ранние</option>
+                            <option value='priceAsc'>Цена продажи: по возрастанию</option>
+                            <option value='priceDesc'>Цена продажи: по убыванию</option>
+                        </> : <option value='date'>Добавлены: новые → старые</option>}
                         <option value='name'>Название: А → Я</option>
-                        {!isWishlist && <option value='watering'>Полив: давно → недавно</option>}
+                        {!isWishlist && !showSold && <option value='watering'>Полив: давно → недавно</option>}
                     </select>
                     <ToolbarIcon name='chevron' />
                 </div>
@@ -97,18 +105,18 @@ export default function PlantsToolbar({
                 {!isWishlist && <GridControls mobile value={mobileCompact} onChange={setMobileCompact} />}
             </div>
             <div className='plantsToolbarFilters' role='group' aria-label='Фильтры растений'>
-                <button className={`btn filterChip ${showAll ? 'filterChip--active' : ''}`} type='button' aria-pressed={showAll} onClick={() => { setShowOnlyHidden(false); setShowOnlyNeedReplant(false); setShowTrash(false); }}>
+                <button className={`btn filterChip ${showAll ? 'filterChip--active' : ''}`} type='button' aria-pressed={showAll} onClick={() => { setShowOnlyHidden(false); setShowOnlyNeedReplant(false); setShowTrash(false); setShowArchive?.(false); }}>
                     <img className='filterIcon' src={sproutIcon} alt='' /><span className='desktopLabel'>{isWishlist ? 'Все желания' : 'Все растения'}</span><span className='mobileLabel'>Все</span>
                 </button>
-                {!isWishlist && <><button className={`btn filterChip ${showOnlyHidden && !showTrash ? 'filterChip--active' : ''}`} type='button' aria-pressed={showOnlyHidden && !showTrash} onClick={() => { setShowOnlyHidden(!showOnlyHidden); setShowTrash(false); }}>
+                {!isWishlist && <><button className={`btn filterChip ${showOnlyHidden && !showTrash && !showArchive ? 'filterChip--active' : ''}`} type='button' aria-pressed={showOnlyHidden && !showTrash && !showArchive} onClick={() => { setShowOnlyHidden(!showOnlyHidden); setShowTrash(false); setShowArchive?.(false); }}>
                     <img className='filterIcon' src={hiddenIcon} alt='' />Скрытые
                 </button>
-                <button className={`btn filterChip ${showOnlyNeedReplant && !showTrash ? 'filterChip--active' : ''}`} type='button' aria-pressed={showOnlyNeedReplant && !showTrash} onClick={() => { setShowOnlyNeedReplant(!showOnlyNeedReplant); setShowTrash(false); }}>
+                <button className={`btn filterChip ${showOnlyNeedReplant && !showTrash && !showArchive ? 'filterChip--active' : ''}`} type='button' aria-pressed={showOnlyNeedReplant && !showTrash && !showArchive} onClick={() => { setShowOnlyNeedReplant(!showOnlyNeedReplant); setShowTrash(false); setShowArchive?.(false); }}>
                     <img className='filterIcon' src={shovelIcon} alt='' /><span className='desktopLabel'>На пересадку</span><span className='mobileLabel'>Пересадка</span>
                 </button></>}
                 <div className='trashFilter'>
-                    <button className={`btn filterChip ${showTrash ? 'filterChip--active' : ''}`} type='button' aria-pressed={showTrash} onClick={() => setShowTrash(!showTrash)}>
-                        <img className='filterIcon' src={trashIcon} alt='' />Корзина · {trashCount}
+                    <button className={`btn filterChip ${(setShowArchive ? showArchive : showTrash) ? 'filterChip--active' : ''}`} type='button' aria-pressed={setShowArchive ? showArchive : showTrash} onClick={() => setShowArchive ? setShowArchive(!showArchive) : setShowTrash(!showTrash)}>
+                        <img className='filterIcon' src={trashIcon} alt='' />{setShowArchive ? 'Архив' : `Корзина · ${trashCount}`}
                     </button>
                 </div>
             </div>

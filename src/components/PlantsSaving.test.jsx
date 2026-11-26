@@ -192,7 +192,8 @@ test('shows care history and all notes in trash without exposing edit controls',
     return jest.fn();
   });
   renderPage();
-  fireEvent.click(screen.getByRole('button', { name: 'Корзина · 1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Архив' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Корзина (1)' }));
   expect(screen.getByText('3 дн. назад')).toBeVisible();
   expect(screen.getByText('7 дн. назад')).toBeVisible();
   expect(screen.queryByText('ещё не поливали')).not.toBeInTheDocument();

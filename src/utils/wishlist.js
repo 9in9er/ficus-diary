@@ -16,5 +16,5 @@ export function getWishlistDetails(draft) {
   const entries = (draft.links || '').split('\n').map((line) => line.trim()).filter(Boolean);
   const links = entries.map(normalizeWishlistLink);
   if (links.some((link) => !link)) throw new Error('Укажите корректные ссылки на сайты, каждую с новой строки.');
-  return { description: (draft.description || '').trim(), price: (draft.price || '').trim(), links: [...new Set(links)] };
+  return { description: (draft.description || '').trim(), price: String(draft.price ?? '').trim(), links: [...new Set(links)] };
 }

@@ -15,6 +15,9 @@ import ModalDialog from './ModalDialog';
 import WishlistCard from './WishlistCard';
 import WishlistForm from './WishlistForm';
 import { getWishlistDetails } from '../utils/wishlist';
+import { parsePrice, sortSales } from '../utils/plantSales';
+import PlantSaleDialog from './PlantSaleDialog';
+import SalesSummary from './SalesSummary';
 
 function PlantsPage({ isWishlist = false }) {
     const { user } = useAuth();
@@ -22,7 +25,15 @@ function PlantsPage({ isWishlist = false }) {
     const { runAction, pendingPlantIds, actionError } = usePlantActions();
     const pagePlants = plants.filter((plant) => !!plant.isWishlisted === isWishlist);
     const filters = usePlantFilters(pagePlants, isWishlist ? 'wishlistSortMode' : 'plantsSortMode');
-    const { showTrash, showOnlyNeedReplant, sortedPlants, sortedTrashPlants } = filters;
+    const { showOnlyNeedReplant, sortedPlants, sortedTrashPlants } = filters;
+    const [showArchive, setShowArchive] = useState(false);
+    const [archiveTab, setArchiveTab] = useState('sold');
+    const [salesSearch, setSalesSearch] = useState('');
+    const [salesSort, setSalesSort] = useState('recent');
+    const [sellingPlant, setSellingPlant] = useState(null);
+    const showSold = !isWishlist && showArchive && archiveTab === 'sold';
+    const showTrash = isWishlist ? filters.showTrash : showArchive && archiveTab === 'trash';
+    const soldPlants = sortSales(pagePlants, salesSearch, salesSort);
     const addForm = usePlantDraft();
     const editor = usePlantEditor();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -71,11 +82,14 @@ function PlantsPage({ isWishlist = false }) {
             if (isWishlist) {
                 getWishlistDetails(addForm.draft);
                 await actions.createWish(addForm.draft);
-            } else await actions.createPlant(addForm.draft);
+            } else {
+                parsePrice(addForm.draft.price);
+                await actions.createPlant(addForm.draft);
+            }
             addForm.resetDraft();
             setIsAddModalOpen(false);
         } catch (error) {
-            setAddPlantError(error.photoError || error.message === 'Укажите корректные ссылки на сайты, каждую с новой строки.'
+            setAddPlantError(error.photoError || error.message.startsWith('Укажите корректн')
                 ? error.message : 'Не удалось сохранить растение. Попробуйте ещё раз.');
         } finally {
             setIsAddingPlant(false);
@@ -89,10 +103,11 @@ function PlantsPage({ isWishlist = false }) {
     };
     
 
-    const visiblePlants = showTrash ? sortedTrashPlants : sortedPlants;
+    const visiblePlants = showTrash ? sortedTrashPlants : showSold ? soldPlants : sortedPlants;
     let emptyMessage = '';
     if (!loadingPlants && !plantsError && visiblePlants.length === 0) {
-        if (showTrash) emptyMessage = 'Корзина пуста.';
+        if (showSold) emptyMessage = salesSearch ? 'По вашему запросу растения не найдены.' : 'Здесь будут отображаться проданные растения';
+        else if (showTrash) emptyMessage = 'Корзина пуста.';
         else if (filters.searchQuery) emptyMessage = 'По вашему запросу растения не найдены. Попробуйте изменить поиск или фильтры.';
         else if (pagePlants.length === 0) emptyMessage = isWishlist ? 'Добавьте первое растение в вишлист!' : 'Добавьте первое растение!';
         else if (showOnlyNeedReplant) emptyMessage = 'Нет растений для пересадки с учётом выбранных фильтров.';
@@ -106,11 +121,14 @@ function PlantsPage({ isWishlist = false }) {
                     isWishlist={isWishlist}
                     count={visiblePlants.length}
                     trashCount={sortedTrashPlants.length}
+                    showArchive={!isWishlist && showArchive}
+                    setShowArchive={isWishlist ? undefined : (value) => { setShowArchive(value); if (value) setArchiveTab('sold'); }}
+                    showSold={showSold}
                     onAdd={() => { setAddPlantError(''); setIsAddModalOpen(true); }}
-                    searchQuery={filters.searchQuery}
-                    setSearchQuery={filters.setSearchQuery}
-                    sortMode={filters.sortMode}
-                    setSortMode={filters.setSortMode}
+                    searchQuery={showSold ? salesSearch : filters.searchQuery}
+                    setSearchQuery={showSold ? setSalesSearch : filters.setSearchQuery}
+                    sortMode={showSold ? salesSort : filters.sortMode}
+                    setSortMode={showSold ? setSalesSort : filters.setSortMode}
                     showOnlyHidden={filters.showOnlyHidden}
                     setShowOnlyHidden={filters.setShowOnlyHidden}
                     showOnlyNeedReplant={showOnlyNeedReplant}
@@ -124,6 +142,17 @@ function PlantsPage({ isWishlist = false }) {
                     mobileCompact={mobileCompact}
                     setMobileCompact={setMobileCompact}
                 />
+
+                {!isWishlist && showArchive && <>
+                    <div className='archiveTabs' role='group' aria-label='Разделы архива'>
+                        <button className='btn filterChip' aria-pressed={archiveTab === 'sold'} onClick={() => setArchiveTab('sold')}>Проданные ({pagePlants.filter((plant) => plant.soldAt && !plant.deletedAt).length})</button>
+                        <button className='btn filterChip' aria-pressed={archiveTab === 'trash'} onClick={() => setArchiveTab('trash')}>Корзина ({sortedTrashPlants.length})</button>
+                    </div>
+                    {showSold && <SalesSummary plants={pagePlants} />}
+                </>}
+
+                {sellingPlant && <PlantSaleDialog plant={sellingPlant} onClose={() => setSellingPlant(null)}
+                    onSave={(fields) => runAction(sellingPlant, () => actions.sellPlant(sellingPlant.id, fields), 'Не удалось сохранить продажу. Попробуйте ещё раз.', { propagateError: true })} />}
 
                 {isAddModalOpen && (
                     <ModalDialog labelledBy='addPlantTitle' onClose={closeAddModal} isBusy={isAddingPlant}>
@@ -175,6 +204,7 @@ function PlantsPage({ isWishlist = false }) {
                             runAction={(action, errorMessage) => runAction(plant, action, errorMessage)}
                             editor={editor}
                             noteText={noteTextByPlant[plant.id] || ''}
+                            onSale={() => setSellingPlant(plant)}
                             onNoteTextChange={(value) => setNoteTextByPlant((previous) => ({ ...previous, [plant.id]: value }))}
                             isTrash={showTrash}
                         />

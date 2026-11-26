@@ -5,23 +5,50 @@ service cloud.firestore {
       function isOwner() {
         return request.auth != null && resource.data.userId == request.auth.uid;
       }
+      function validMoney(value) {
+        return value is number && value >= 0 && value <= 1000000000000;
+      }
+      function validPrice() {
+        let data = request.resource.data;
+        let price = data.get('price', null);
+        return price == null || validMoney(price)
+          || (data.get('isWishlisted', false) == true && price is string && price.size() <= 200);
+      }
+      function validSaleDate(date) {
+        return date is string && !date.matches('^0000-.*')
+          && (date.matches('^[0-9]{4}-((0[13578]|1[02])-(0[1-9]|[12][0-9]|3[01])|(0[469]|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$')
+            || date.matches('^([0-9]{2}(0[48]|[2468][048]|[13579][26])|([02468][048]|[13579][26])00)-02-29$'));
+      }
+      function validSale() {
+        let data = request.resource.data;
+        let date = data.get('soldAt', null);
+        let price = data.get('salePrice', null);
+        return (date == null && price == null)
+          || (data.get('isWishlisted', false) == false && validSaleDate(date)
+            && validMoney(price));
+      }
       allow read: if isOwner();
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
+        && validPrice() && validSale()
         && request.resource.data.keys().hasOnly([
           'name', 'acquiredAt', 'description', 'price', 'links', 'isWishlisted',
           'wateringLog', 'fertilizingLog', 'notes', 'userId', 'createdAt',
-          'pinned', 'hidden', 'deletedAt', 'replanted'
+          'pinned', 'hidden', 'deletedAt', 'replanted', 'soldAt', 'salePrice'
         ]);
       // Only the API can change photoKey, legacy photo, owner or deletion locks.
       // Existing base64 fields remain readable and unchanged.
       allow update: if isOwner()
         && request.resource.data.userId == resource.data.userId
         && resource.data.get('_photoDeleting', false) == false
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['price']) || validPrice())
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['soldAt', 'salePrice', 'isWishlisted']) || validSale())
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['soldAt', 'salePrice'])
+          || resource.data.get('deletedAt', null) == null)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'acquiredAt', 'description', 'price', 'links', 'isWishlisted',
           'wateringLog', 'fertilizingLog', 'notes', 'createdAt',
-          'pinned', 'hidden', 'deletedAt', 'replanted'
+          'pinned', 'hidden', 'deletedAt', 'replanted', 'soldAt', 'salePrice'
         ]);
       allow delete: if false;
     }

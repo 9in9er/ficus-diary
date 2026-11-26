@@ -38,6 +38,63 @@ const client = (uid = 'alice') => uid ? env.authenticatedContext(uid).firestore(
 const plantRef = (db = client(), id = 'plant') => doc(db, 'plants', id);
 const seed = (value = legacy(), id = 'plant') => admin.collection('plants').doc(id).set(value);
 
+test('a restored legacy plant with no purchase price can be sold for 600 on a past date', async () => {
+  const original = { ...legacy(), name: 'Каладиум роузбад 2', deletedAt: DATE,
+    photoKey: key, photoThumbKey: key, notes: [{ id: 'note', text: 'Keep history' }] };
+  await seed(original);
+  await assertSucceeds(updateDoc(plantRef(), { deletedAt: null }));
+  await assertSucceeds(updateDoc(plantRef(), { soldAt: '2026-11-23', salePrice: 600, hidden: false, pinned: false }));
+  assert.deepEqual((await getDoc(plantRef())).data(), {
+    ...original, deletedAt: null, soldAt: '2026-11-23', salePrice: 600,
+  });
+});
+
+test('sale lifecycle keeps document, all photo keys, notes and care history; trash restores to sold', async () => {
+  const original = { ...legacy(), price: 850, photoKey: key, photoThumbKey: key,
+    notes: [{ id: 'note', text: 'Keep me' }], wateringLog: [DATE], fertilizingLog: [DATE] };
+  await seed(original);
+  const ref = plantRef();
+  await assertSucceeds(updateDoc(ref, { soldAt: '2026-11-26', salePrice: 0, hidden: false, pinned: false }));
+  await assertSucceeds(updateDoc(ref, { price: 0, salePrice: 1200, soldAt: '2026-10-01' }));
+  await assertSucceeds(updateDoc(ref, { deletedAt: DATE }));
+  await assertFails(updateDoc(ref, { salePrice: 100 }));
+  await assertSucceeds(updateDoc(ref, { deletedAt: null }));
+  assert.deepEqual((await getDoc(ref)).data(), { ...original, price: 0, soldAt: '2026-10-01', salePrice: 1200 });
+  await assertSucceeds(updateDoc(ref, { soldAt: null, salePrice: null }));
+  assert.deepEqual((await getDoc(ref)).data(), { ...original, price: 0, soldAt: null, salePrice: null });
+});
+
+test('sale validation rejects negative, incomplete, malformed and wishlist sales without weakening ownership or photo locks', async () => {
+  for (const patch of [
+    { soldAt: '2026-11-26' }, { salePrice: 10 },
+    { soldAt: '2026-11-26', salePrice: -1 }, { soldAt: '2026-11-26', salePrice: '10' },
+    { soldAt: '2026-13-01', salePrice: 10 }, { soldAt: 'invalid', salePrice: 10 },
+    { soldAt: '2026-02-30', salePrice: 0 }, { soldAt: '2026-02-29', salePrice: 0 },
+    { soldAt: '0000-01-01', salePrice: 0 }, { soldAt: '2026-04-31', salePrice: 0 },
+    { price: -1 }, { price: 'abc' }, { soldAt: null, salePrice: 10 },
+  ]) {
+    await seed();
+    await assertFails(updateDoc(plantRef(), patch));
+  }
+  const sale = { soldAt: '2026-11-26', salePrice: 0 };
+  await seed(wish());
+  await assertFails(updateDoc(plantRef(), sale));
+  await seed();
+  for (const uid of [null, 'bob']) await assertFails(updateDoc(plantRef(client(uid)), sale));
+  await seed({ ...legacy(), _photoDeleting: true });
+  await assertFails(updateDoc(plantRef(), sale));
+  await assertFails(setDoc(plantRef(client(), 'bad-sale'), { ...base(), soldAt: '2026-11-26', salePrice: -1 }));
+  await seed();
+  await assertSucceeds(updateDoc(plantRef(), { soldAt: '2024-02-29', salePrice: 0 }));
+});
+
+test('old wishlist string prices survive acquisition and later sale without migration', async () => {
+  await seed(wish());
+  await assertSucceeds(updateDoc(plantRef(), { isWishlisted: false, acquiredAt: '2026-11-25' }));
+  await assertSucceeds(updateDoc(plantRef(), { soldAt: '2026-11-26', salePrice: 1200 }));
+  assert.equal((await getDoc(plantRef())).data().price, '1000 ₽');
+});
+
 before(async () => {
   setLogLevel('silent'); // Expected PERMISSION_DENIED cases are asserted below.
   const [hostname, port] = host.split(':');

@@ -31,7 +31,7 @@ export default function usePlantFilters(plants, sortStorageKey = 'plantsSortMode
 
   const normalizedSearch = searchQuery.toLowerCase();
   const sortedPlants = plants.filter((plant) => {
-    if (plant.deletedAt) return false;
+    if (plant.deletedAt || plant.soldAt) return false;
     if (!(plant.name || '').toLowerCase().includes(normalizedSearch)) return false;
     // В Firestore признак «нужна пересадка» исторически называется replanted.
     if (showOnlyNeedReplant && !plant.replanted) return false;

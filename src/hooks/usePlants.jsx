@@ -5,6 +5,7 @@ import { getLocalDate } from '../utils/plantDates';
 import { getWishlistDetails } from '../utils/wishlist';
 import { photoRequest, savePlantPhoto } from '../services/plantPhotos';
 import { getDraftPhotoUrl } from '../utils/photoUrl';
+import { parsePrice, saleFields } from '../utils/plantSales';
 
 const CARE_LOG_LIMIT = 8;
 
@@ -48,14 +49,15 @@ export function usePlants(user) {
   const createPlant = async (draft) => {
     if (!draft.name.trim() || !userId) throw new Error('Не заполнены данные растения или аккаунта.');
     if (draft.photoSource === 'url') return saveWithPhotoUrl(null, draft, {
-      name: draft.name, acquiredAt: draft.acquiredAt || '',
+      name: draft.name, acquiredAt: draft.acquiredAt || '', price: parsePrice(draft.price),
     }, true);
     if (draft.photoBlob) return saveWithPhoto(null, draft, {
-      name: draft.name, acquiredAt: draft.acquiredAt || '',
+      name: draft.name, acquiredAt: draft.acquiredAt || '', price: parsePrice(draft.price),
     }, true);
     await addDoc(collection(db, 'plants'), {
       name: draft.name,
       acquiredAt: draft.acquiredAt,
+      price: parsePrice(draft.price),
       wateringLog: [], fertilizingLog: [], notes: [],
       userId,
       createdAt: new Date().toISOString(),
@@ -64,7 +66,8 @@ export function usePlants(user) {
   };
 
   const savePlant = (id, draft) => {
-    const fields = { name: draft.name, acquiredAt: draft.acquiredAt };
+    const fields = { name: draft.name, acquiredAt: draft.acquiredAt, price: parsePrice(draft.price),
+      ...(draft.hasSale ? saleFields(draft) : {}) };
     if (draft.photoSource === 'url') return saveWithPhotoUrl(id, draft, fields);
     return draft.photoBlob ? saveWithPhoto(id, draft, fields) : updatePlant(id, fields);
   };
@@ -115,6 +118,8 @@ export function usePlants(user) {
     savePlant,
     createWish,
     saveWish,
+    sellPlant: (id, draft) => updatePlant(id, { ...saleFields(draft), hidden: false, pinned: false }),
+    cancelSale: (id) => updatePlant(id, { soldAt: null, salePrice: null, hidden: false, pinned: false }),
     acquireWish: (id) => updatePlant(id, {
       isWishlisted: false, acquiredAt: getLocalDate(),
       createdAt: new Date().toISOString(),

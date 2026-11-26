@@ -10,6 +10,28 @@ jest.mock('firebase/firestore', () => ({
   onSnapshot: jest.fn(), addDoc: jest.fn(), updateDoc: jest.fn(), deleteDoc: jest.fn(),
 }));
 const user = { uid: 'owner' };
+
+test.each([['850', 850], ['0', 0], ['', null]])('purchase price %p is persisted as %p on creation and metadata edit', async (price, expected) => {
+  const { result } = renderHook(() => usePlants(user));
+  const draft = { name: 'Ficus', acquiredAt: '', price };
+  await result.current.actions.createPlant(draft);
+  expect(addDoc.mock.calls[0][1].price).toBe(expected);
+  await result.current.actions.savePlant('plant', draft);
+  expect(updateDoc).toHaveBeenCalledWith({ id: 'plant' }, { name: 'Ficus', acquiredAt: '', price: expected });
+});
+
+test('purchase and sale prices survive saves through both photo API paths', async () => {
+  const { result } = renderHook(() => usePlants(user));
+  const draft = { name: 'Ficus', acquiredAt: '', price: '0', hasSale: true, soldAt: '2026-11-26', salePrice: '1200' };
+  await result.current.actions.savePlant('plant', { ...draft, photoBlob: new Blob(['photo']) });
+  expect(savePlantPhoto).toHaveBeenCalledWith(user, expect.objectContaining({ fields: {
+    name: 'Ficus', acquiredAt: '', price: 0, soldAt: '2026-11-26', salePrice: 1200,
+  } }));
+  await result.current.actions.savePlant('plant', { ...draft, photoSource: 'url', photoUrl: 'https://example.com/photo.jpg' });
+  expect(photoRequest).toHaveBeenCalledWith(user, expect.objectContaining({ fields: {
+    name: 'Ficus', acquiredAt: '', price: 0, soldAt: '2026-11-26', salePrice: 1200,
+  } }));
+});
 beforeEach(() => {
   jest.resetAllMocks();
   doc.mockImplementation((db, collection, id) => ({ id: id || 'new-id' }));

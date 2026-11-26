@@ -5,7 +5,7 @@ export default function usePlantActions() {
   const [pendingPlantIds, setPendingPlantIds] = useState(new Set());
   const [actionError, setActionError] = useState('');
 
-  const runAction = async (plant, action, errorMessage) => {
+  const runAction = async (plant, action, errorMessage, { propagateError = false } = {}) => {
     if (inFlight.current.has(plant.id)) return false;
 
     inFlight.current.add(plant.id);
@@ -16,6 +16,7 @@ export default function usePlantActions() {
       return true;
     } catch (error) {
       setActionError(`${plant.name}: ${error.photoError ? error.message : errorMessage}`);
+      if (propagateError) throw error;
       return false;
     } finally {
       inFlight.current.delete(plant.id);

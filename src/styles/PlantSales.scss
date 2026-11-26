@@ -1,0 +1,82 @@
+@use 'sass-rem' as rem;
+@use './variables' as *;
+
+.purchasePrice, .saleDifference, .saleHint {
+  color: $grayTextColor;
+  font-size: rem.convert(13px);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.saleDifference--positive { color: #477451; }
+.saleDifference--negative { color: #a15c5c; }
+.moneyLabel {
+  display: flex;
+  flex-direction: column;
+  gap: rem.convert(5px);
+  min-width: 0;
+  margin-block: rem.convert(12px);
+  font-size: rem.convert(14px);
+  input { box-sizing: border-box; width: 100%; min-width: 0; padding: rem.convert(10px); }
+}
+.plantSaleDialog .modalButtons { flex-wrap: wrap; }
+.salePlantPreview {
+  display: flex;
+  align-items: center;
+  gap: rem.convert(12px);
+  overflow-wrap: anywhere;
+  .plantPhotoButton { flex: 0 0 rem.convert(64px); width: rem.convert(64px); }
+  > div { min-width: 0; flex: 1; }
+  .plantPhoto { width: rem.convert(64px); height: rem.convert(80px); flex-shrink: 0; object-fit: cover; border-radius: rem.convert(5px); }
+}
+.archiveTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem.convert(8px);
+  margin-top: rem.convert(16px);
+  .btn { background: #fff; color: #444; border: 1px solid $borderColor; }
+  .btn[aria-pressed='true'] { background: #ededed; border-color: #bdbdbd; }
+}
+.salesSummary {
+  padding: rem.convert(16px 0);
+  border-bottom: 1px solid $borderColor;
+  p { margin: 0; }
+  .salesSummaryMain { display: flex; flex-wrap: wrap; gap: rem.convert(12px 32px); font-size: rem.convert(14px); }
+  strong { display: block; font-size: rem.convert(20px); margin-top: rem.convert(4px); }
+  .salesSummaryDetails { display: flex; flex-wrap: wrap; gap: rem.convert(4px 20px); margin-top: rem.convert(12px); color: $grayTextColor; font-size: rem.convert(13px); }
+  .saleHint { margin-top: rem.convert(8px); }
+}
+.plantListWrap .plantWrap {
+  min-width: 0;
+  .purchasePrice { margin-top: rem.convert(4px); }
+  .saleDate { margin-top: rem.convert(12px); font-size: rem.convert(14px); }
+  .salePrice { font-size: rem.convert(15px); font-weight: 600; line-height: 1.5; }
+  .soldHistory {
+    margin-top: rem.convert(12px);
+    font-size: rem.convert(14px);
+    overflow-wrap: anywhere;
+    summary { cursor: pointer; }
+    h3 { font-size: inherit; margin: rem.convert(12px 0 4px); }
+    ul { padding-left: rem.convert(18px); }
+    .notesList { padding-left: 0; }
+  }
+  .btn.btnSell { background: #fff; }
+  .btnsWrap.cardBtns { max-width: calc(100% - #{rem.convert(40px)}); flex-wrap: wrap; }
+  .soldHistory {
+    .notesList { list-style: none; }
+    .notesText { white-space: pre-wrap; }
+    .notesDate { color: $grayTextColor; font-size: rem.convert(12px); margin-block: rem.convert(4px 10px); }
+  }
+}
+// Keep metadata and archive actions available in the existing compact layouts.
+@media (min-width: 481px) {
+  .plantListWrap:is(.plantListWrap--columns-5, .plantListWrap--columns-6, .plantListWrap--columns-7, .plantListWrap--columns-8) .plantWrap {
+    .plantInfo .aboutPlant .aboutPlantWrap .textInfos .dateOfAppearance { display: block; font-size: rem.convert(13px); }
+    .btnsWrap.cardBtns { display: flex; max-width: 100%; }
+  }
+}
+@media (max-width: 480px) {
+  .plantListWrap--mobile-compact .plantWrap {
+    .plantInfo .aboutPlant .aboutPlantWrap .textInfos .dateOfAppearance { display: block; font-size: rem.convert(13px); }
+    .btnsWrap.cardBtns { display: flex; max-width: 100%; }
+  }
+}

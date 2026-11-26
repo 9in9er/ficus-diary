@@ -90,7 +90,10 @@ test.each([
   request.mockReturnValueOnce(pending.promise);
   if (prepare === 'trash') plants = [{ ...plant, deletedAt: new Date().toISOString() }];
   renderPage();
-  if (prepare === 'trash') fireEvent.click(screen.getByRole('button', { name: 'Корзина · 1' }));
+  if (prepare === 'trash') {
+    fireEvent.click(screen.getByRole('button', { name: 'Архив' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Корзина (1)' }));
+  }
   const card = screen.getByRole('listitem', { name: 'Фикус' });
   if (prepare === 'menu') fireEvent.click(within(card).getByRole('button', { name: 'menu' }));
   else if (prepare && prepare !== 'trash') fireEvent.click(within(card).getByText(prepare));

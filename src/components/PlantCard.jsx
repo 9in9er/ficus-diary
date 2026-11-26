@@ -21,8 +21,11 @@ import PlantForm from './PlantForm';
 import PlantPhoto from './PlantPhoto';
 import CardSavingOverlay from './CardSavingOverlay';
 import PlantName from './PlantName';
+import ModalDialog from './ModalDialog';
+import saleIcon from '../i/icons/circle-dollar-sign.svg';
+import { isSold, purchasePriceText, formatMoney, priceDifference, formatDifference, parsePrice, saleFields } from '../utils/plantSales';
 
-function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash = false, isPending, runAction }) {
+function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash = false, isPending, runAction, onSale }) {
   const {
     handleWaterPlant, handleFertilizePlant, deleteWateringEntry, deleteFertilizingEntry,
     handleDeletePlant, toggleNeedReplant, togglePinPlant, toggleHidePlant,
@@ -31,6 +34,9 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
   const { editingId, draft: editPlant, startEdit: startEditPlant, cancelEdit } = editor;
   const [isDotsMenuOpen, setIsDotsMenuOpen] = useState(false);
   const [editError, setEditError] = useState('');
+  const [confirmCancelSale, setConfirmCancelSale] = useState(false);
+  const sold = isSold(plant);
+  const difference = priceDifference(plant);
   const isEditing = editingId === plant.id;
   const noteInputRef = useAutoResizeTextarea(noteText, isEditing, isTrash);
 
@@ -63,6 +69,10 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
       return;
     }
     setEditError('');
+    try {
+      parsePrice(editPlant.price);
+      if (sold) saleFields(editPlant);
+    } catch (error) { setEditError(error.message); return; }
     const saved = await runAction(
       () => actions.savePlant(plant.id, editPlant),
       'Не удалось сохранить изменения. Попробуйте ещё раз.'
@@ -82,7 +92,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
           })}
         </div>
       </div>
-      {!isTrash && (
+      {!isTrash && !sold && (
         <button
           className='btn btnDelete'
           type='button'
@@ -103,10 +113,21 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
       role='listitem'
       aria-label={plant.name}
       aria-busy={isPending}
-      className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isTrash ? "plantWrap--trash" : ""}`}
+      className={`plantWrap ${isPinned ? 'plantWrap--pinned' : ''} ${isTrash ? 'plantWrap--trash' : ''} ${sold ? 'plantWrap--sold' : ''}`}
       onMouseLeave={() => setIsDotsMenuOpen(false)}
     >
       {isPending && <CardSavingOverlay />}
+      {confirmCancelSale && <ModalDialog labelledBy={`cancelSale-${plant.id}`} onClose={() => setConfirmCancelSale(false)} isBusy={isPending}>
+        <h2 id={`cancelSale-${plant.id}`}>Отменить продажу?</h2>
+        <p>«{plant.name}» вернётся в основную коллекцию. Цена и дата продажи будут очищены.</p>
+        <div className='modalButtons'>
+          <button className='btn btnCancel' disabled={isPending} onClick={() => setConfirmCancelSale(false)}>Оставить продажу</button>
+          <button className='btn btnSubmit' disabled={isPending} onClick={async () => {
+            const saved = await runAction(() => actions.cancelSale(plant.id), 'Не удалось отменить продажу. Попробуйте ещё раз.');
+            if (saved) setConfirmCancelSale(false);
+          }}>Вернуть в коллекцию</button>
+        </div>
+      </ModalDialog>}
       <div className='plantInfo'>
         {isEditing ? (
           <PlantForm
@@ -134,7 +155,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                 <div className='photoInfo'>
                   <PlantPhoto plant={plant} className='plantPhoto' />
 
-                  <PlantCareHistory
+                  {!sold && <><PlantCareHistory
                     plantId={plant.id}
                     log={wateringLog}
                     title='Полив'
@@ -175,7 +196,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                       () => deleteFertilizingEntry(id, log, date),
                       'Не удалось удалить запись удобрения. Попробуйте ещё раз.'
                     )}
-                  />
+                  /></>}
                 </div>
                 <div className='textInfos'>
                   <p className='dateOfAppearance'>
@@ -183,7 +204,23 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                     {plant.acquiredAt ? formatDate(plant.acquiredAt) : 'неизвестно'}
                   </p>
 
-                  <div className='notesBlock'>
+                  <p className='purchasePrice'>Цена покупки: {purchasePriceText(plant.price)}</p>
+                  {sold && <>
+                    <p className='saleDate'>Дата продажи: {formatDate(plant.soldAt)}</p>
+                    <p className='salePrice'>Цена продажи: {formatMoney(plant.salePrice ?? 0)}</p>
+                    {difference !== null && <p className={`saleDifference ${difference < 0 ? 'saleDifference--negative' : 'saleDifference--positive'}`}>Разница: {formatDifference(difference)}</p>}
+                    <details className='soldHistory'>
+                      <summary>История ухода и заметки</summary>
+                      {[['Полив', wateringLog], ['Удобрение', fertilizingLog]].map(([title, log]) => <section key={title}>
+                        <h3>{title}</h3>
+                        {log.length ? <ul>{[...log].reverse().map((date, index) => <li key={`${date}-${index}`}>{formatDate(date)}</li>)}</ul> : <p>Нет записей.</p>}
+                      </section>)}
+                      <h3>Заметки</h3>
+                      {sortedNotes.length ? <ul className='notesList'>{sortedNotes.map(renderNoteItem)}</ul> : <p>Пока нет заметок.</p>}
+                    </details>
+                  </>}
+
+                  {!sold && <div className='notesBlock'>
                     {!isTrash && (
                       <div className='notesAdd'>
                         <textarea
@@ -229,7 +266,7 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                         )}
                       </>
                     )}
-                  </div>
+                  </div>}
 
                   {isTrash && (
                     <div className="trashInfo">
@@ -251,14 +288,15 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                     <>
                       <button
                         className='btn btnEdit'
+                        aria-label={sold ? 'Редактировать' : undefined}
                         disabled={isPending}
-                        onClick={() => startEditPlant(plant)}
+                        onClick={() => { setIsDotsMenuOpen(false); startEditPlant(plant); }}
                       >
                         <span>
                           <img src={iconEmojiPencil} alt='iconEmojiPencil'/>
                         </span>
                       </button>
-                      <button
+                      {!sold && <><button
                         className={`btn btnPin ${isPinned ? 'btnPin--active' : ''}`}
                         disabled={isPending}
                         onClick={() => runAction(
@@ -296,9 +334,17 @@ function PlantCard({ plant, actions, editor, noteText, onNoteTextChange, isTrash
                         <span>
                           <img src={iconEmojiEyeOff} alt='iconEmojiEyeOff'/>
                         </span>
-                      </button>
+                      </button></>}
+                      {sold ? <button className='btn' aria-label='Отменить продажу' title='Отменить продажу' disabled={isPending}
+                        onClick={() => { setIsDotsMenuOpen(false); setConfirmCancelSale(true); }}>
+                        <span><img src={recycleIcon} alt='' /></span>
+                      </button> : !plant.isWishlisted && <button className='btn btnSell' aria-label='Продано' title='Продано' disabled={isPending}
+                        onClick={() => { setIsDotsMenuOpen(false); onSale(); }}>
+                        <span><img src={saleIcon} alt='' /></span>
+                      </button>}
                       <button
                         className='btn btnDelete'
+                        aria-label={sold ? 'Удалить' : undefined}
                         disabled={isPending}
                         onClick={() => runAction(
                           () => handleDeletePlant(plant.id),

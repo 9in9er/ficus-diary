@@ -41,6 +41,32 @@ const legacy = { userId: 'owner', name: 'Ficus', photo: 'data:image/jpeg;base64,
 const upload = { action: 'upload', plantId: 'plant-1', size: 100 };
 const fields = { name: 'New name', acquiredAt: '2026-11-19' };
 
+test('photo API keeps purchase and sale metadata through link and uploaded-photo edits', async () => {
+  const f = fixture({ 'plants/plant-1': { ...legacy, soldAt: '2026-11-25', salePrice: 100,
+    notes: ['keep'], wateringLog: ['keep'], photoThumbKey: null } });
+  const details = { ...fields, price: 0, soldAt: '2026-11-26', salePrice: 0 };
+  await f.service('owner', { action: 'link', plantId: 'plant-1', photo: 'https://example.com/photo.jpg', fields: details });
+  assert.deepEqual(f.records.get('plants/plant-1'), { ...legacy, ...details,
+    photo: 'https://example.com/photo.jpg', notes: ['keep'], wateringLog: ['keep'], photoKey: null, photoThumbKey: null });
+  const ticket = await f.service('owner', upload);
+  await f.service('owner', { action: 'commit', plantId: 'plant-1', uploadId: ticket.uploadId,
+    fields: { ...details, price: 850, salePrice: 1200 } });
+  assert.equal(f.records.get('plants/plant-1').price, 850);
+  assert.equal(f.records.get('plants/plant-1').salePrice, 1200);
+  assert.deepEqual(f.records.get('plants/plant-1').notes, ['keep']);
+});
+
+test('photo API rejects invalid monetary and sale metadata before storage writes', async () => {
+  for (const patch of [{ price: -1 }, { price: '850' }, { price: Infinity },
+    { soldAt: '2026-11-26', salePrice: -1 }, { soldAt: '2026-02-30', salePrice: 0 },
+    { soldAt: '0000-01-01', salePrice: 0 }, { soldAt: '2026-11-26' }, { salePrice: 0 }]) {
+    const f = fixture({ 'plants/plant-1': legacy });
+    await assert.rejects(f.service('owner', { action: 'link', plantId: 'plant-1', photo: 'https://example.com/photo.jpg', fields: { ...fields, ...patch } }), { status: 400 });
+    assert.deepEqual(f.records.get('plants/plant-1'), legacy);
+    assert.equal(f.files.storePhotoVersions.mock.callCount(), 0);
+  }
+});
+
 test('denies other users read/upload/commit/delete without touching storage', async () => {
   const f = fixture({ 'plants/plant-1': legacy });
   const ticket = await f.service('owner', upload);

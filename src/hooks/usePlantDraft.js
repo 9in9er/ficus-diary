@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { resizePlantPhoto } from '../utils/resizePlantPhoto';
 import { isHttpPhotoUrl } from '../utils/photoUrl';
+import { readPrice } from '../utils/plantSales';
 
 const emptyDraft = () => ({ id: null, name: '', acquiredAt: '', photoKey: null, photo: null, photoBlob: null, photoSource: 'file', photoUrl: '', photoUrlStatus: 'loading', description: '', price: '', links: '' });
 
@@ -25,7 +26,10 @@ export default function usePlantDraft() {
       photoUrl: !plant.photoKey && isHttpPhotoUrl(plant.photo) ? plant.photo : '',
       photoUrlStatus: 'loading',
       description: plant.description || '',
-      price: plant.price || '',
+      price: plant.isWishlisted ? (plant.price ?? '') : (readPrice(plant.price) ?? ''),
+      soldAt: plant.soldAt || '',
+      hasSale: !!plant.soldAt,
+      salePrice: plant.salePrice ?? '',
       links: Array.isArray(plant.links) ? plant.links.join('\n') : '',
     } : emptyDraft());
   };

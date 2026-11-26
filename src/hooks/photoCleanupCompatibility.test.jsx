@@ -104,7 +104,7 @@ test('metadata editing for collection/wishlist without legacy photo never rewrit
     await result.current.actions.savePlant('ordinary', { name: 'Renamed', acquiredAt: '' });
     await result.current.actions.saveWish(cleanedWish.id, { name: 'Renamed wish', description: 'new', price: '', links: '' });
   });
-  expect(updateDoc).toHaveBeenCalledWith({ id: 'ordinary' }, { name: 'Renamed', acquiredAt: '' });
+  expect(updateDoc).toHaveBeenCalledWith({ id: 'ordinary' }, { name: 'Renamed', acquiredAt: '', price: null });
   expect(updateDoc).toHaveBeenCalledWith({ id: cleanedWish.id }, { name: 'Renamed wish', description: 'new', price: '', links: [] });
   for (const [, patch] of updateDoc.mock.calls) {
     expect(patch).not.toHaveProperty('photo');

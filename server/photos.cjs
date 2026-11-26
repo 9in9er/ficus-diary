@@ -33,6 +33,17 @@ function plantFields(input, isWishlisted) {
       fail(400, 'Некорректная дата появления растения.');
     }
     fields.acquiredAt = input.acquiredAt;
+    if (Object.hasOwn(input, 'price')) {
+      if (input.price !== null && (!Number.isFinite(input.price) || input.price < 0 || input.price > 1e12)) fail(400, 'Некорректная цена покупки.');
+      fields.price = input.price;
+    }
+    if (Object.hasOwn(input, 'soldAt') || Object.hasOwn(input, 'salePrice')) {
+      if (typeof input.soldAt !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.soldAt)
+        || input.soldAt.startsWith('0000') || Number.isNaN(Date.parse(input.soldAt))
+        || new Date(input.soldAt).toISOString().slice(0, 10) !== input.soldAt
+        || !Number.isFinite(input.salePrice) || input.salePrice < 0 || input.salePrice > 1e12) fail(400, 'Некорректные данные продажи.');
+      Object.assign(fields, { soldAt: input.soldAt, salePrice: input.salePrice });
+    }
   }
   return fields;
 }

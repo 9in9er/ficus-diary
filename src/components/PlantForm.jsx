@@ -45,6 +45,24 @@ function PlantForm({
         </div>
       </div>
 
+      <label className='moneyLabel'>
+        Цена покупки, ₽
+        <input className='input' type='number' min='0' max='1000000000000' step='0.01'
+          value={photoForm.draft.price ?? ''} disabled={isSubmitting}
+          onChange={(event) => photoForm.setField('price', event.target.value)} />
+      </label>
+      {photoForm.draft.hasSale && <div className='saleFields'>
+        <label className='moneyLabel'>Цена продажи, ₽
+          <input className='input' type='number' min='0' max='1000000000000' step='0.01' required
+            value={photoForm.draft.salePrice ?? ''} disabled={isSubmitting}
+            onChange={(event) => photoForm.setField('salePrice', event.target.value)} />
+        </label>
+        <label className='moneyLabel'>Дата продажи
+          <input className='plantDate' type='date' required value={photoForm.draft.soldAt} disabled={isSubmitting}
+            onChange={(event) => photoForm.setField('soldAt', event.target.value)} />
+        </label>
+      </div>}
+
       <PlantPhotoInput form={photoForm} disabled={isSubmitting} />
       {error && <p className='formError' role='alert'>{error}</p>}
       <div className='modalButtons'>
